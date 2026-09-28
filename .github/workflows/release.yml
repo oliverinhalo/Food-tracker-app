@@ -1,0 +1,132 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version name for this release, e.g. 0.2.0"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Work out the version
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            NAME="${{ github.event.inputs.version }}"
+            TAG="v${NAME}"
+            PRERELEASE=false
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+            NAME="${TAG#v}"
+            PRERELEASE=false
+          else
+            # Rolling build from main: one "latest" pre-release that always holds the newest APK.
+            NAME="0.0.0-main.$(git rev-parse --short HEAD)"
+            TAG="latest"
+            PRERELEASE=true
+          fi
+          # Monotonic versionCode so a newer build always installs over an older one.
+          CODE="$(git rev-list --count HEAD)"
+          {
+            echo "name=${NAME}"
+            echo "tag=${TAG}"
+            echo "code=${CODE}"
+            echo "prerelease=${PRERELEASE}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Decode signing keystore
+        id: keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -n "${RELEASE_KEYSTORE_BASE64:-}" ]; then
+            echo "${RELEASE_KEYSTORE_BASE64}" | base64 -d > "${RUNNER_TEMP}/release.jks"
+            echo "path=${RUNNER_TEMP}/release.jks" >> "$GITHUB_OUTPUT"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No release keystore secret set; falling back to debug signing."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Assemble release APK
+        env:
+          RELEASE_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleRelease --stacktrace \
+            -PversionName="${{ steps.version.outputs.name }}" \
+            -PversionCode="${{ steps.version.outputs.code }}"
+
+      - name: Name the APK after its version
+        id: apk
+        run: |
+          set -euo pipefail
+          SRC="$(find app/build/outputs/apk/release -name '*.apk' | head -1)"
+          DEST="food-tracker-${{ steps.version.outputs.name }}.apk"
+          cp "$SRC" "$DEST"
+          echo "path=${DEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Write release notes
+        run: |
+          set -euo pipefail
+          {
+            echo "### Food Tracker ${{ steps.version.outputs.name }}"
+            echo
+            echo "Download **${{ steps.apk.outputs.path }}** below and open it on your phone to install."
+            echo "You will need to allow installing from unknown sources the first time."
+            echo
+            if [ "${{ steps.keystore.outputs.signed }}" != "true" ]; then
+              echo "> **Note:** this build is signed with a throwaway debug key because no release"
+              echo "> keystore secret is configured. It installs fine, but Android will refuse to"
+              echo "> upgrade over a build signed with a different key -- uninstall first if that happens."
+              echo
+            fi
+            echo "Built from \`${{ github.sha }}\`."
+          } > release-notes.md
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag == 'latest' && 'Latest build from main' || format('Food Tracker {0}', steps.version.outputs.name) }}
+          body_path: release-notes.md
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+          files: ${{ steps.apk.outputs.path }}
+          # The rolling "latest" release is republished on every push to main.
+          make_latest: ${{ steps.version.outputs.prerelease != 'true' }}

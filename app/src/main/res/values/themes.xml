@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Compose owns the real theming. This only has to look right for the moment between launch and
+      the first frame, so it just needs the correct background for the system's dark-mode setting
+      (see values-night). There is no framework DayNight variant of Theme.Material, hence the split.
+    -->
+    <style name="Theme.FoodTracker" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+</resources>

@@ -1,0 +1,20 @@
+*.iml
+.gradle/
+.idea/
+build/
+build-logic/build/
+build-logic/*/build/
+local.properties
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+*.jks
+release/
+# The on-device food classifier is fetched by the developer, not committed (see README).
+app/src/main/assets/food_classifier.tflite
+secrets.properties
+keystore.properties
