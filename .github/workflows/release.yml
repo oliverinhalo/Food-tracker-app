@@ -3,7 +3,9 @@ name: Release
 on:
   push:
     tags: ["v*"]
-    branches: ["main"]
+    # Any branch, but the job below only builds a rolling release from whichever branch the
+    # repository actually calls its default -- so this keeps working if it is not named "main".
+    branches: ["**"]
   workflow_dispatch:
     inputs:
       version:
@@ -22,6 +24,10 @@ jobs:
     name: Build and publish APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    if: >-
+      github.ref_type == 'tag' ||
+      github.event_name == 'workflow_dispatch' ||
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
 
     steps:
       - uses: actions/checkout@v4
@@ -50,8 +56,9 @@ jobs:
             NAME="${TAG#v}"
             PRERELEASE=false
           else
-            # Rolling build from main: one "latest" pre-release that always holds the newest APK.
-            NAME="0.0.0-main.$(git rev-parse --short HEAD)"
+            # Rolling build from the default branch: one "latest" pre-release that always holds
+            # the newest APK.
+            NAME="0.0.0-dev.$(git rev-parse --short HEAD)"
             TAG="latest"
             PRERELEASE=true
           fi
@@ -124,9 +131,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag == 'latest' && 'Latest build from main' || format('Food Tracker {0}', steps.version.outputs.name) }}
+          name: ${{ steps.version.outputs.tag == 'latest' && 'Latest development build' || format('Food Tracker {0}', steps.version.outputs.name) }}
           body_path: release-notes.md
           prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
           files: ${{ steps.apk.outputs.path }}
-          # The rolling "latest" release is republished on every push to main.
+          # The rolling "latest" release is republished on every push to the default branch.
           make_latest: ${{ steps.version.outputs.prerelease != 'true' }}

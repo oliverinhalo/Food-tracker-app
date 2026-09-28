@@ -12,8 +12,11 @@ instantly, and a cloud pass that refines them.
 
 Every release on the [Releases page](../../releases) has an installable APK attached. Download
 `food-tracker-<version>.apk` on your phone and open it; you'll need to allow installing from
-unknown sources the first time. Pushes to `main` refresh a rolling `latest` pre-release, and
-tagging `vX.Y.Z` cuts a proper versioned release.
+unknown sources the first time.
+
+Pushes to the repository's default branch refresh a rolling `latest` pre-release, and tagging
+`vX.Y.Z` cuts a proper versioned release. You can also run the **Release** workflow by hand from
+the Actions tab and give it any version you like.
 
 ## Building it yourself
 
