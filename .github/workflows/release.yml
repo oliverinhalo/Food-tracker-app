@@ -91,6 +91,9 @@ jobs:
 
       - name: Assemble release APK
         env:
+          # Optional: bakes a USDA key into the build. Without it the app still works -- the key
+          # can be entered in Settings instead.
+          USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
           RELEASE_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}

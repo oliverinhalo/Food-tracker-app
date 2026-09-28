@@ -13,6 +13,10 @@ captures/
 *.aab
 *.keystore
 *.jks
+# ...except the development signing key, which is deliberately committed so that every build
+# shares a signature and app updates install over the top instead of demanding an uninstall
+# (which would wipe the user's saved API key). Its password is in app/build.gradle.kts.
+!signing/dev-release.jks
 release/
 # The on-device food classifier is fetched by the developer, not committed (see README).
 app/src/main/assets/food_classifier.tflite

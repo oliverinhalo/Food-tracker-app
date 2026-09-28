@@ -9,6 +9,8 @@ object ResultsTestTags {
     const val CONFIRM = "results_confirm"
     const val DEGRADE_BANNER = "results_degrade_banner"
     const val MEAL_TYPE_ROW = "results_meal_type_row"
+    const val STAGE_LABEL = "results_stage_label"
+    const val ANALYZING = "results_analyzing"
 
     fun itemCard(id: String) = "results_item_$id"
     fun itemIncrement(id: String) = "results_item_inc_$id"

@@ -15,9 +15,25 @@ enum class AnalysisPhase {
     FAILED,
 }
 
+/**
+ * What the app is doing right now, in the user's terms.
+ *
+ * "Analysing" for eight seconds reads as a hang; naming each step makes the same wait legible and
+ * tells the user which part is slow when something goes wrong.
+ */
+enum class AnalysisStage(val label: String) {
+    PREPARING("Preparing photo…"),
+    UPLOADING("Uploading to Gemini…"),
+    IDENTIFYING("Identifying foods…"),
+    LOOKING_UP_NUTRITION("Looking up nutrition…"),
+    SAVING("Saving meal…"),
+    DONE(""),
+}
+
 @Immutable
 data class ResultsUiState(
     val phase: AnalysisPhase = AnalysisPhase.ANALYZING,
+    val stage: AnalysisStage = AnalysisStage.PREPARING,
     val items: List<DetectedItem> = emptyList(),
     val mealType: MealType = MealType.SNACK,
     val degradeReason: DegradeReason? = null,
@@ -37,6 +53,13 @@ data class ResultsUiState(
 
     val isRefining: Boolean
         get() = phase == AnalysisPhase.PROVISIONAL
+
+    /** Items the databases could not identify; they log, but with no calories attached. */
+    val unresolvedCount: Int
+        get() = items.count { it.nutrientsPer100g == null && it.name.isNotBlank() }
+
+    val isBusy: Boolean
+        get() = stage != AnalysisStage.DONE
 }
 
 /** Everything the user can do from the sheet. One sealed type keeps the ViewModel's surface honest. */

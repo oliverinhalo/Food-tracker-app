@@ -46,6 +46,19 @@ class SecureKeyStore @Inject constructor(
 
     fun geminiApiKey(): String? = prefs.getString(KEY_GEMINI, null)?.takeIf { it.isNotBlank() }
 
+    /**
+     * Optional USDA FoodData Central key. There is a build-time key too, but a fresh clone and
+     * every CI build have none, so without this the shipped app silently loses its source of
+     * generic-food nutrition.
+     */
+    fun usdaApiKey(): String? = prefs.getString(KEY_USDA, null)?.takeIf { it.isNotBlank() }
+
+    fun setUsdaApiKey(key: String?) {
+        prefs.edit().apply {
+            if (key.isNullOrBlank()) remove(KEY_USDA) else putString(KEY_USDA, key.trim())
+        }.apply()
+    }
+
     fun setGeminiApiKey(key: String?) {
         prefs.edit().apply {
             if (key.isNullOrBlank()) remove(KEY_GEMINI) else putString(KEY_GEMINI, key.trim())
@@ -56,5 +69,6 @@ class SecureKeyStore @Inject constructor(
     private companion object {
         const val PREFS_NAME = "secure_keys"
         const val KEY_GEMINI = "gemini_api_key"
+        const val KEY_USDA = "usda_api_key"
     }
 }

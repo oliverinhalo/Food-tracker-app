@@ -9,16 +9,24 @@ plugins {
 }
 
 /**
- * Release signing comes from (in order): environment variables set by CI from repository secrets,
- * then a local `keystore.properties`, then nothing -- in which case the release build falls back to
- * the debug signing config so it is still installable. A fallback-signed APK cannot upgrade a
- * properly signed install, which the release workflow calls out in its notes.
+ * Release signing, in order of preference: repository secrets passed by CI, then a local
+ * `keystore.properties`, then the committed development keystore.
+ *
+ * That last fallback exists because Android refuses to update an installed app whose signature
+ * changed. CI runners generate a fresh debug keystore per run, so every build was signed by a
+ * different key and every update demanded an uninstall -- which wipes app data, including the
+ * user's saved Gemini key. A stable key, even a public one, is what makes updates install over
+ * the top and keep their data.
+ *
+ * The development keystore's password is in the repository and is therefore NOT a secret: anyone
+ * can sign an APK that claims to be this app. That is an acceptable trade for a personal build
+ * distributed through GitHub Releases, and it is why the real key belongs in repository secrets
+ * before this is ever published anywhere that matters.
  */
-val releaseKeystore: File? = System.getenv("RELEASE_KEYSTORE_PATH")?.let(::File)
-    ?: rootProject.file("keystore.properties").takeIf { it.exists() }?.let { propsFile ->
-        val props = Properties().apply { FileInputStream(propsFile).use(::load) }
-        props.getProperty("storeFile")?.let(rootProject::file)
-    }
+// Public by design: this is the development key described above, not a secret. Declared before
+// use -- a top-level val in a Kotlin build script is null until its own line has run.
+val DEV_KEYSTORE_PASSWORD = "foodtracker"
+val DEV_KEYSTORE_ALIAS = "foodtracker"
 
 val keystoreProps: Properties? = rootProject.file("keystore.properties")
     .takeIf { it.exists() }
@@ -26,6 +34,16 @@ val keystoreProps: Properties? = rootProject.file("keystore.properties")
 
 fun secret(env: String, prop: String): String? =
     System.getenv(env) ?: keystoreProps?.getProperty(prop)
+
+val devKeystore: File = rootProject.file("signing/dev-release.jks")
+
+val releaseKeystore: File? = (
+    System.getenv("RELEASE_KEYSTORE_PATH")?.let(::File)
+        ?: keystoreProps?.getProperty("storeFile")?.let(rootProject::file)
+        ?: devKeystore
+    ).takeIf { it.exists() }
+
+val usingDevKeystore: Boolean = releaseKeystore == devKeystore
 
 android {
     namespace = "dev.foodtracker"
@@ -41,18 +59,21 @@ android {
     signingConfigs {
         create("release") {
             val keystore = releaseKeystore
-            if (keystore != null && keystore.exists()) {
+            if (keystore != null) {
                 storeFile = keystore
                 storePassword = secret("RELEASE_KEYSTORE_PASSWORD", "storePassword")
+                    ?: DEV_KEYSTORE_PASSWORD.takeIf { usingDevKeystore }
                 keyAlias = secret("RELEASE_KEY_ALIAS", "keyAlias")
+                    ?: DEV_KEYSTORE_ALIAS.takeIf { usingDevKeystore }
                 keyPassword = secret("RELEASE_KEY_PASSWORD", "keyPassword")
+                    ?: DEV_KEYSTORE_PASSWORD.takeIf { usingDevKeystore }
             }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = if (releaseKeystore?.exists() == true) {
+            signingConfig = if (releaseKeystore != null) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")

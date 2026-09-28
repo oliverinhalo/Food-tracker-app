@@ -1,7 +1,6 @@
 package dev.foodtracker.data.nutrition
 
 import dev.foodtracker.core.model.DetectedItem
-import dev.foodtracker.core.model.MeasurementUnit
 import dev.foodtracker.core.model.Portion
 import dev.foodtracker.domain.nutrition.FoodCategory
 import dev.foodtracker.domain.nutrition.UnitConverter
@@ -32,14 +31,16 @@ class ResolveNutrition @Inject constructor(
         if (item.nutrientsPer100g != null) return item
         if (item.name.isBlank()) return item
 
-        val record = repository.resolve(item.name, item.brand) ?: return item
+        // The recogniser already told us how it was prepared; that is exactly what separates
+        // cooked rice from rice flour in a database search.
+        val record = repository.resolve(item.name, item.brand, item.cookingMethod) ?: return item
         val key = foodKeyOf(item.name, item.brand)
 
         // A user-set portion is theirs; only a recogniser's estimate gets nudged by past habits.
         val portion = if (item.source == dev.foodtracker.core.model.RecognitionSource.USER) {
             item.portion
         } else {
-            biasedPortion(item, key, record)
+            biasedPortion(item, key)
         }
 
         return item.copy(
@@ -50,7 +51,7 @@ class ResolveNutrition @Inject constructor(
         )
     }
 
-    private suspend fun biasedPortion(item: DetectedItem, key: String, record: FoodRecord): Portion {
+    private suspend fun biasedPortion(item: DetectedItem, key: String): Portion {
         val biasedGrams = repository.biasEstimate(key, item.portion.unit, item.portion.grams)
         if (biasedGrams == item.portion.grams) return item.portion
 
@@ -61,8 +62,9 @@ class ResolveNutrition @Inject constructor(
             amount = converter.fromGrams(biasedGrams, item.portion.unit, profile, key),
             unit = item.portion.unit,
             grams = biasedGrams,
-            // The recogniser's phrasing described its own estimate, which we have just changed.
-            householdDescription = item.portion.householdDescription.takeIf { item.portion.unit == MeasurementUnit.GRAM },
+            // The recogniser's phrasing ("1 medium breast") described the estimate we have just
+            // changed, so keeping it would label the new amount with the old description.
+            householdDescription = null,
         )
     }
 }

@@ -30,6 +30,12 @@ class SettingsViewModel @Inject constructor(
 
     fun clearApiKey() = viewModelScope.launch { settingsRepository.setGeminiApiKey(null) }
 
+    fun setUsdaKey(key: String) = viewModelScope.launch {
+        settingsRepository.setUsdaApiKey(key.trim().takeIf { it.isNotBlank() })
+    }
+
+    fun clearUsdaKey() = viewModelScope.launch { settingsRepository.setUsdaApiKey(null) }
+
     fun setCalorieGoal(goal: Int) = viewModelScope.launch {
         settingsRepository.setDailyCalorieGoal(goal)
     }

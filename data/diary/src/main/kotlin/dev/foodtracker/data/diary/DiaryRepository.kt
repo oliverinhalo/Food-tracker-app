@@ -70,8 +70,11 @@ class DiaryRepository @Inject constructor(
         val mealId = UUID.randomUUID().toString()
         val loggedAt = timeProvider.epochMillis()
 
-        val rows = items.mapNotNull { item ->
-            val nutrients = item.nutrients ?: return@mapNotNull null
+        // Every item the user confirmed is written, including any whose nutrition never resolved.
+        // Dropping those silently made a whole meal vanish from Home whenever a lookup failed --
+        // the user confirmed a plate of food and got an empty day back.
+        val rows = items.map { item ->
+            val nutrients = item.nutrients ?: Nutrients.ZERO
             LoggedFoodItemEntity(
                 id = UUID.randomUUID().toString(),
                 mealId = mealId,

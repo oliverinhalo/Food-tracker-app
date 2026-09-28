@@ -42,6 +42,7 @@ rootProject.name = "food-tracker"
 include(":app")
 
 include(":core:model")
+include(":core:text")
 include(":core:common")
 include(":core:ui")
 include(":core:network")

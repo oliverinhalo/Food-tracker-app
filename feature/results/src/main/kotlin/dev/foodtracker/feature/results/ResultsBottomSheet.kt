@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -94,7 +96,7 @@ fun ResultsBottomSheet(
                 }
 
                 state.phase == AnalysisPhase.ANALYZING && state.items.isEmpty() -> {
-                    AnalyzingSkeleton()
+                    AnalyzingSkeleton(state.stage)
                 }
 
                 else -> {
@@ -159,13 +161,25 @@ private fun TotalsHeader(state: ResultsUiState) {
                 }
             }
 
-            if (state.isRefining) {
-                Text(
-                    text = "Refining…",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                )
+            if (state.isBusy) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .testTag(ResultsTestTags.STAGE_LABEL)
+                        .semantics { liveRegion = LiveRegionMode.Polite },
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(12.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = state.stage.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
         }
 
@@ -176,6 +190,15 @@ private fun TotalsHeader(state: ResultsUiState) {
 
         state.degradeReason?.let { reason ->
             DegradeBanner(message = reason.bannerMessage(), isActionable = reason.isUserActionable)
+        }
+
+        if (!state.isBusy && state.unresolvedCount > 0) {
+            DegradeBanner(
+                message = "No nutrition data for ${state.unresolvedCount} item" +
+                    (if (state.unresolvedCount == 1) "" else "s") +
+                    ". Tap the item and pick a different name, or log it without calories.",
+                isActionable = true,
+            )
         }
     }
 }
@@ -231,14 +254,22 @@ private fun DegradeBanner(message: String, isActionable: Boolean) {
 }
 
 @Composable
-private fun AnalyzingSkeleton() {
+private fun AnalyzingSkeleton(stage: AnalysisStage) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .semantics { contentDescription = "Analysing your meal" },
+            .testTag(ResultsTestTags.ANALYZING)
+            .semantics { contentDescription = stage.label.ifBlank { "Analysing your meal" } },
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            Text(text = stage.label, style = MaterialTheme.typography.bodyMedium)
+        }
         repeat(3) {
             SkeletonBlock(modifier = Modifier.fillMaxWidth(), height = 72.dp, cornerRadius = 12.dp)
         }

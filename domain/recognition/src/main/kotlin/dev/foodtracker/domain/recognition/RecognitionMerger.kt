@@ -3,6 +3,7 @@ package dev.foodtracker.domain.recognition
 import dev.foodtracker.core.model.DetectedItem
 import dev.foodtracker.core.model.FoodAlternative
 import dev.foodtracker.core.model.RecognitionSource
+import dev.foodtracker.core.text.TextSimilarity
 
 /**
  * Folds a later, more trustworthy pass of detections into the list already on screen.

@@ -7,11 +7,13 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -19,10 +21,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NoPhotography
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -51,6 +57,7 @@ object CaptureTestTags {
     const val SHUTTER = "capture_shutter"
     const val PREVIEW = "capture_preview"
     const val PERMISSION_STATE = "capture_permission_state"
+    const val GALLERY = "capture_gallery"
 }
 
 @Composable
@@ -72,6 +79,7 @@ fun CaptureRoute(
         state = state,
         onFrameCaptured = viewModel::onFrameCaptured,
         onCaptureFailed = viewModel::onCaptureFailed,
+        onGalleryImageSelected = viewModel::onGalleryImageSelected,
         modifier = modifier,
     )
 }
@@ -81,6 +89,7 @@ internal fun CaptureScreen(
     state: CaptureUiState,
     onFrameCaptured: (ByteArray) -> Unit,
     onCaptureFailed: (String) -> Unit,
+    onGalleryImageSelected: (Uri) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -94,6 +103,18 @@ internal fun CaptureScreen(
         permissionRequested = true
     }
 
+    // The photo picker needs no permission of its own, so importing from the gallery stays
+    // available even when camera access has been refused.
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> uri?.let(onGalleryImageSelected) }
+
+    fun pickFromGallery() {
+        galleryLauncher.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+        )
+    }
+
     LaunchedEffect(Unit) {
         if (!hasPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
@@ -104,12 +125,14 @@ internal fun CaptureScreen(
                 state = state,
                 onFrameCaptured = onFrameCaptured,
                 onCaptureFailed = onCaptureFailed,
+                onPickFromGallery = ::pickFromGallery,
             )
         } else {
             PermissionState(
                 permanentlyDenied = permissionRequested,
                 onRequest = { permissionLauncher.launch(Manifest.permission.CAMERA) },
                 onOpenSettings = { context.openAppSettings() },
+                onPickFromGallery = ::pickFromGallery,
             )
         }
 
@@ -129,6 +152,7 @@ private fun BoxScope.CameraPreview(
     state: CaptureUiState,
     onFrameCaptured: (ByteArray) -> Unit,
     onCaptureFailed: (String) -> Unit,
+    onPickFromGallery: () -> Unit,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -180,6 +204,20 @@ private fun BoxScope.CameraPreview(
             )
         }
     }
+
+    FilledTonalIconButton(
+        onClick = onPickFromGallery,
+        enabled = !state.isCapturing,
+        modifier = Modifier
+            .align(Alignment.BottomStart)
+            .navigationBarsPadding()
+            .padding(start = 28.dp, bottom = 54.dp)
+            .size(48.dp)
+            .testTag(CaptureTestTags.GALLERY)
+            .semantics { contentDescription = "Choose a photo from your gallery" },
+    ) {
+        Icon(Icons.Default.PhotoLibrary, contentDescription = null)
+    }
 }
 
 @Composable
@@ -187,17 +225,29 @@ private fun BoxScope.PermissionState(
     permanentlyDenied: Boolean,
     onRequest: () -> Unit,
     onOpenSettings: () -> Unit,
+    onPickFromGallery: () -> Unit,
 ) {
-    MessageState(
-        icon = Icons.Default.NoPhotography,
-        title = "Camera access needed",
-        body = "Food Tracker uses the camera to identify what's on your plate. Photos stay on your device unless you turn on cloud analysis.",
-        actionLabel = if (permanentlyDenied) "Open settings" else "Allow camera",
-        onAction = if (permanentlyDenied) onOpenSettings else onRequest,
+    Column(
         modifier = Modifier
             .align(Alignment.Center)
             .testTag(CaptureTestTags.PERMISSION_STATE),
-    )
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        MessageState(
+            icon = Icons.Default.NoPhotography,
+            title = "Camera access needed",
+            body = "Food Tracker uses the camera to identify what's on your plate. Photos stay on your device unless you turn on cloud analysis.",
+            actionLabel = if (permanentlyDenied) "Open settings" else "Allow camera",
+            onAction = if (permanentlyDenied) onOpenSettings else onRequest,
+        )
+        TextButton(
+            onClick = onPickFromGallery,
+            modifier = Modifier.testTag(CaptureTestTags.GALLERY),
+        ) {
+            Icon(Icons.Default.PhotoLibrary, contentDescription = null)
+            Text("  Choose from gallery")
+        }
+    }
 }
 
 private fun Context.hasCameraPermission(): Boolean =

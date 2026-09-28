@@ -38,7 +38,7 @@ Nothing secret is committed. There are two keys, and they are handled differentl
 | Key | Where it goes | Why |
 | --- | --- | --- |
 | **Gemini (Google AI Studio)** | Entered in the app under **Settings → Gemini API key** | It is *your* key and your quota, so it belongs to the install, not the build. Stored in `EncryptedSharedPreferences` behind an Android Keystore AES256-GCM master key, and excluded from cloud backup and device transfer. |
-| **USDA FoodData Central** | `local.properties` as `USDA_API_KEY=...` | Shipped with the build, used from phase 2 onward. `local.properties` is gitignored. |
+| **USDA FoodData Central** | **Settings → USDA FoodData Central key**, or `local.properties` as `USDA_API_KEY=...`, or a `USDA_API_KEY` repository secret | USDA is where generic foods (rice, broccoli, chicken) get accurate calories. Release APKs are built by CI, which has no `local.properties`, so a runtime option exists too — otherwise the shipped app would silently have no USDA access. |
 
 Get a free Gemini key at [aistudio.google.com](https://aistudio.google.com/apikey) and a free USDA
 key at [fdc.nal.usda.gov](https://fdc.nal.usda.gov/api-key-signup.html).
@@ -58,13 +58,24 @@ app/src/main/assets/food_labels.txt
 Without it, the local pass reports itself unavailable and the pipeline goes straight to the cloud
 pass. This is wired but inert until phase 3.
 
-### Signing releases
+### Signing, and why updates keep your data
 
-CI signs with repository secrets when they exist, and falls back to debug signing otherwise (still
-installable, but Android won't upgrade across a signing-key change). To sign properly, set
-`RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and
-`RELEASE_KEY_PASSWORD` as repository secrets. Locally, a `keystore.properties` at the repo root
-(gitignored) does the same job.
+Android refuses to update an installed app whose signing key changed — the only way through is an
+uninstall, which wipes app data including your saved Gemini key.
+
+CI runners generate a fresh debug keystore on every run, so early builds were each signed by a
+different key and every update demanded an uninstall. `signing/dev-release.jks` is committed so all
+builds share one signature and updates install over the top.
+
+That keystore's password is in `app/build.gradle.kts` and is therefore **not a secret** — anyone
+can sign an APK claiming to be this app. That is an acceptable trade for a personal build
+distributed through GitHub Releases, and it is why a real key belongs in repository secrets before
+this is published anywhere that matters. To switch: set `RELEASE_KEYSTORE_BASE64`,
+`RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD` as repository secrets
+and they take precedence. Locally, a gitignored `keystore.properties` does the same.
+
+Note that switching keys is itself a key change, so the first build after switching needs one final
+uninstall.
 
 ## Architecture
 
@@ -105,6 +116,14 @@ render the moment anything is known:
 
 Both passes start together rather than in sequence: waiting for the local pass before dialling out
 would add its latency to the cloud result too.
+
+**Picking the right database row** is where the calories are won or lost. Search ranks by text
+relevance, and taking the first hit is wrong by a lot: USDA answers "steamed broccoli" with
+*"Corn, white, steamed"* at 386 kcal/100g (the real broccoli row, 35 kcal, is sixth) and "white
+rice" with rice *flour* at 359 kcal where cooked rice is 130. `FoodMatcher` scores every candidate
+instead — the food itself must be named, the preparation should agree, processed forms like flour
+are penalised, and the energy has to be physically plausible for that category. When nothing
+plausible matches it returns nothing, because no calories is better than confidently wrong ones.
 
 **Merging** is the subtle part and lives in `RecognitionMerger` as a pure, unit-tested function.
 It matches by bounding-box IoU where both sides have boxes and by food-label similarity otherwise;

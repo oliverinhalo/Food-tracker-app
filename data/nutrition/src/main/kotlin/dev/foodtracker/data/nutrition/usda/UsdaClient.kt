@@ -2,6 +2,7 @@ package dev.foodtracker.data.nutrition.usda
 
 import dev.foodtracker.core.common.di.IoDispatcher
 import dev.foodtracker.core.database.entity.FoodSource
+import dev.foodtracker.core.datastore.SecureKeyStore
 import dev.foodtracker.core.model.Nutrients
 import dev.foodtracker.data.nutrition.BuildConfig
 import dev.foodtracker.data.nutrition.FoodRecord
@@ -28,16 +29,25 @@ import javax.inject.Singleton
 class UsdaClient @Inject constructor(
     private val client: OkHttpClient,
     private val json: Json,
+    private val secureKeyStore: SecureKeyStore,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
 
-    val isConfigured: Boolean get() = BuildConfig.USDA_API_KEY.isNotBlank()
+    /**
+     * A key entered in Settings wins over the build-time one. Release builds are produced by CI,
+     * which has no local.properties, so without a runtime option the shipped app would have no
+     * USDA access at all -- and USDA is where every generic, unbranded food comes from.
+     */
+    private val apiKey: String? get() = secureKeyStore.usdaApiKey() ?: BuildConfig.USDA_API_KEY.takeIf { it.isNotBlank() }
+
+    val isConfigured: Boolean get() = apiKey != null
 
     suspend fun search(query: String, limit: Int = 10): List<FoodRecord> = withContext(ioDispatcher) {
-        if (!isConfigured || query.isBlank()) return@withContext emptyList()
+        val key = apiKey ?: return@withContext emptyList()
+        if (query.isBlank()) return@withContext emptyList()
 
         val url = "$BASE_URL/foods/search".toHttpUrl().newBuilder()
-            .addQueryParameter("api_key", BuildConfig.USDA_API_KEY)
+            .addQueryParameter("api_key", key)
             .addQueryParameter("query", query)
             .addQueryParameter("pageSize", limit.toString())
             .addQueryParameter("dataType", "Foundation,SR Legacy")

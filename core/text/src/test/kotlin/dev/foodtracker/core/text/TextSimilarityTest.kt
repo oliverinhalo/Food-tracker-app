@@ -1,4 +1,4 @@
-package dev.foodtracker.domain.recognition
+package dev.foodtracker.core.text
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
@@ -47,5 +47,30 @@ class TextSimilarityTest {
     @Test
     fun `blank input is never a match`() {
         assertThat(TextSimilarity.similarity("", "apple")).isEqualTo(0f)
+    }
+
+    @Test
+    fun `coverage prefers the entry that actually covers the query over a shorter one`() {
+        val query = "grilled chicken breast"
+        val plainCut = "Chicken, broiler or fryers, breast, skinless, boneless, meat only, cooked, grilled"
+        val processed = "Chicken breast, roll, oven-roasted"
+
+        // Symmetric similarity rewards the short processed product purely for being short.
+        assertThat(TextSimilarity.similarity(query, processed))
+            .isGreaterThan(TextSimilarity.similarity(query, plainCut))
+
+        // Coverage gets it the right way round.
+        assertThat(TextSimilarity.coverage(query, plainCut))
+            .isGreaterThan(TextSimilarity.coverage(query, processed))
+    }
+
+    @Test
+    fun `coverage is one when the candidate contains every query word`() {
+        assertThat(TextSimilarity.coverage("white rice", "white rice")).isEqualTo(1.0f)
+    }
+
+    @Test
+    fun `coverage is zero for unrelated foods`() {
+        assertThat(TextSimilarity.coverage("banana", "steak")).isEqualTo(0f)
     }
 }

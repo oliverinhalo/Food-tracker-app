@@ -35,6 +35,7 @@ class SettingsRepository @Inject constructor(
         val LOCAL_ONLY = booleanPreferencesKey("local_only_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val API_KEY_PRESENT = booleanPreferencesKey("api_key_present")
+        val USDA_KEY_PRESENT = booleanPreferencesKey("usda_key_present")
     }
 
     val settings: Flow<UserSettings> = context.settingsDataStore.data.map { prefs ->
@@ -47,6 +48,7 @@ class SettingsRepository @Inject constructor(
             localOnlyMode = prefs[Keys.LOCAL_ONLY] ?: false,
             dynamicColor = prefs[Keys.DYNAMIC_COLOR] ?: true,
             hasApiKey = prefs[Keys.API_KEY_PRESENT] ?: false,
+            hasUsdaKey = prefs[Keys.USDA_KEY_PRESENT] ?: false,
         )
     }
 
@@ -68,6 +70,11 @@ class SettingsRepository @Inject constructor(
     suspend fun setGeminiApiKey(key: String?) {
         secureKeyStore.setGeminiApiKey(key)
         edit { it[Keys.API_KEY_PRESENT] = !key.isNullOrBlank() }
+    }
+
+    suspend fun setUsdaApiKey(key: String?) {
+        secureKeyStore.setUsdaApiKey(key)
+        edit { it[Keys.USDA_KEY_PRESENT] = !key.isNullOrBlank() }
     }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {

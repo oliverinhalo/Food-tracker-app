@@ -44,6 +44,7 @@ import dev.foodtracker.core.datastore.UserSettings
 
 object SettingsTestTags {
     const val API_KEY_FIELD = "settings_api_key_field"
+    const val USDA_KEY_FIELD = "settings_usda_key_field"
     const val API_KEY_SAVE = "settings_api_key_save"
     const val LOCAL_ONLY_SWITCH = "settings_local_only"
     const val CALORIE_GOAL_FIELD = "settings_calorie_goal"
@@ -60,6 +61,8 @@ fun SettingsRoute(
         settings = settings,
         onSaveApiKey = viewModel::setApiKey,
         onClearApiKey = viewModel::clearApiKey,
+        onSaveUsdaKey = viewModel::setUsdaKey,
+        onClearUsdaKey = viewModel::clearUsdaKey,
         onCalorieGoalChange = viewModel::setCalorieGoal,
         onUnitSystemChange = viewModel::setUnitSystem,
         onLocalOnlyChange = viewModel::setLocalOnlyMode,
@@ -73,6 +76,8 @@ internal fun SettingsScreen(
     settings: UserSettings,
     onSaveApiKey: (String) -> Unit,
     onClearApiKey: () -> Unit,
+    onSaveUsdaKey: (String) -> Unit,
+    onClearUsdaKey: () -> Unit,
     onCalorieGoalChange: (Int) -> Unit,
     onUnitSystemChange: (UnitSystem) -> Unit,
     onLocalOnlyChange: (Boolean) -> Unit,
@@ -88,10 +93,31 @@ internal fun SettingsScreen(
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineSmall)
 
-        ApiKeySection(
+        KeySection(
+            title = "Gemini API key",
+            explanation = if (settings.hasApiKey) {
+                "A key is saved. It is stored encrypted on this device and never leaves it except to call Google's API."
+            } else {
+                "Add a free Google AI Studio key to get multi-item detection and portion estimates."
+            },
             hasKey = settings.hasApiKey,
+            testTag = SettingsTestTags.API_KEY_FIELD,
             onSave = onSaveApiKey,
             onClear = onClearApiKey,
+        )
+
+        KeySection(
+            title = "USDA FoodData Central key",
+            explanation = if (settings.hasUsdaKey) {
+                "A key is saved. USDA covers generic, unbranded foods; without it only branded products resolve."
+            } else {
+                "Optional but recommended: a free USDA key is what gives generic foods like rice or broccoli " +
+                    "accurate calories. Without it the app falls back to branded products, which match poorly."
+            },
+            hasKey = settings.hasUsdaKey,
+            testTag = SettingsTestTags.USDA_KEY_FIELD,
+            onSave = onSaveUsdaKey,
+            onClear = onClearUsdaKey,
         )
 
         GoalSection(goal = settings.dailyCalorieGoal, onGoalChange = onCalorieGoalChange)
@@ -136,8 +162,11 @@ internal fun SettingsScreen(
 }
 
 @Composable
-private fun ApiKeySection(
+private fun KeySection(
+    title: String,
+    explanation: String,
     hasKey: Boolean,
+    testTag: String,
     onSave: (String) -> Unit,
     onClear: () -> Unit,
 ) {
@@ -149,13 +178,9 @@ private fun ApiKeySection(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Gemini API key", style = MaterialTheme.typography.titleMedium)
+            Text(title, style = MaterialTheme.typography.titleMedium)
             Text(
-                text = if (hasKey) {
-                    "A key is saved. It is stored encrypted on this device and never leaves it except to call Google's API."
-                } else {
-                    "Add a free Google AI Studio key to get multi-item detection and portion estimates."
-                },
+                text = explanation,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -177,7 +202,7 @@ private fun ApiKeySection(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag(SettingsTestTags.API_KEY_FIELD),
+                    .testTag(testTag),
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

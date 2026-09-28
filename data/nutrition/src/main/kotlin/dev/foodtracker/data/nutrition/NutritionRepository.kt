@@ -7,7 +7,9 @@ import dev.foodtracker.core.model.MeasurementUnit
 import dev.foodtracker.core.network.NetworkMonitor
 import dev.foodtracker.data.nutrition.off.OpenFoodFactsClient
 import dev.foodtracker.data.nutrition.usda.UsdaClient
+import dev.foodtracker.domain.nutrition.FoodMatcher
 import dev.foodtracker.domain.nutrition.LearnedPortion
+import dev.foodtracker.domain.nutrition.MatchCandidate
 import dev.foodtracker.domain.nutrition.PortionCorrection
 import dev.foodtracker.domain.nutrition.PortionLearner
 import dev.foodtracker.domain.nutrition.PortionOverrideStore
@@ -34,20 +36,36 @@ class NutritionRepository @Inject constructor(
     private val timeProvider: TimeProvider,
 ) {
     private val learner = PortionLearner()
+    private val matcher = FoodMatcher()
 
-    /** Best single match for a recognised food label. */
-    suspend fun resolve(name: String, brand: String? = null): FoodRecord? {
+    /**
+     * Best single match for a recognised food label.
+     *
+     * The search itself is only a shortlist: both databases rank by text relevance, which answers
+     * "steamed broccoli" with steamed corn and "white rice" with rice flour. [FoodMatcher] decides
+     * which row is actually the food, and returning null is preferable to returning a confident
+     * wrong number.
+     */
+    suspend fun resolve(name: String, brand: String? = null, cookingMethod: String? = null): FoodRecord? {
         val key = foodKeyOf(name, brand)
 
         foodDao.byExactKey(key)?.let { return it.toRecord() }
 
         if (!networkMonitor.isCurrentlyOnline()) {
-            // Offline: a fuzzy cache hit is far better than no calories at all.
-            return foodDao.search(key, limit = 1).firstOrNull()?.toRecord()
+            // Offline: a fuzzy cache hit is far better than no calories at all, but it still has
+            // to survive matching, or we would log whatever happens to share a word.
+            val cached = foodDao.search(key, limit = CANDIDATE_POOL).map { it.toRecord() }
+            return matcher.bestMatch(name, cached.toCandidates(), cookingMethod, preferBranded = !brand.isNullOrBlank())
         }
 
-        val results = search(name, brand)
-        return results.firstOrNull()
+        // A wider pool than the user will ever see: the right row is often several places down.
+        val candidates = search(name, brand, limit = CANDIDATE_POOL)
+        return matcher.bestMatch(
+            query = name,
+            candidates = candidates.toCandidates(),
+            cookingMethod = cookingMethod,
+            preferBranded = !brand.isNullOrBlank(),
+        )
     }
 
     /**
@@ -84,6 +102,11 @@ class NutritionRepository @Inject constructor(
         val record = offClient.byBarcode(barcode) ?: return null
         cache(listOf(record))
         return record
+    }
+
+    private companion object {
+        /** Shortlist depth handed to the matcher; the right row is often several places down. */
+        const val CANDIDATE_POOL = 25
     }
 
     suspend fun cache(records: List<FoodRecord>) {
@@ -138,6 +161,15 @@ class NutritionRepository @Inject constructor(
                 learned[foodKey to unit]?.grams
         }
     }
+}
+
+private fun List<FoodRecord>.toCandidates(): List<MatchCandidate<FoodRecord>> = map { record ->
+    MatchCandidate(
+        value = record,
+        name = record.name,
+        caloriesPer100g = record.per100g.calories,
+        isBranded = record.isBranded,
+    )
 }
 
 private fun PortionCorrectionEntity.toDomain(): PortionCorrection? {

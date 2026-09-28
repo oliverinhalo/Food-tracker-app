@@ -12,6 +12,7 @@ data class UserSettings(
     val localOnlyMode: Boolean = false,
     val dynamicColor: Boolean = true,
     val hasApiKey: Boolean = false,
+    val hasUsdaKey: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_CALORIE_GOAL = 2000

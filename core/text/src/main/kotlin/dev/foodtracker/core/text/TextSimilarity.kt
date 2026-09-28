@@ -1,4 +1,4 @@
-package dev.foodtracker.domain.recognition
+package dev.foodtracker.core.text
 
 import java.util.Locale
 
@@ -9,7 +9,11 @@ import java.util.Locale
  * must not. Token overlap handles word order and extra qualifiers; edit distance catches plurals
  * and small spelling differences within a token.
  */
-internal object TextSimilarity {
+/**
+ * Food-label similarity, shared by the recognition merger (are these two detections the same
+ * food?) and the nutrition matcher (is this database row actually the food we asked for?).
+ */
+object TextSimilarity {
 
     /** Words that carry no identity and would otherwise inflate overlap scores. */
     private val STOP_WORDS = setOf(
@@ -76,5 +80,26 @@ internal object TextSimilarity {
             current = swap
         }
         return previous[b.length]
+    }
+
+    /**
+     * Asymmetric match score in 0..1, weighted toward how much of [query] the [candidate] covers.
+     *
+     * Symmetric overlap is right for asking "are these the same detection?", but wrong for
+     * searching a food database, whose entries are long and descriptive. Scored symmetrically,
+     * "Chicken breast, roll, oven-roasted" beats "Chicken, broiler or fryers, breast, skinless,
+     * boneless, meat only, cooked, grilled" for the query "grilled chicken breast" -- purely for
+     * being shorter, despite being a different, processed product. Covering the query is what
+     * matters; extra descriptive words are a mild signal, not a heavy penalty.
+     */
+    fun coverage(query: String, candidate: String, queryWeight: Float = 0.75f): Float {
+        val a = normalizeTokens(query)
+        val b = normalizeTokens(candidate)
+        if (a.isEmpty() || b.isEmpty()) return 0f
+
+        val forward = a.count { tokenA -> b.any { tokenB -> tokensMatch(tokenA, tokenB) } }.toFloat() / a.size
+        val reverse = b.count { tokenB -> a.any { tokenA -> tokensMatch(tokenA, tokenB) } }.toFloat() / b.size
+
+        return queryWeight * forward + (1 - queryWeight) * reverse
     }
 }

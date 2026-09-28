@@ -62,6 +62,7 @@ class ResultsViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     phase = AnalysisPhase.ANALYZING,
+                    stage = AnalysisStage.PREPARING,
                     degradeReason = null,
                     errorMessage = null,
                     mealType = MealType.suggestedFor(timeProvider.now()),
@@ -73,6 +74,7 @@ class ResultsViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         phase = AnalysisPhase.FAILED,
+                        stage = AnalysisStage.DONE,
                         errorMessage = "That photo is no longer available. Try taking it again.",
                     )
                 }
@@ -86,12 +88,18 @@ class ResultsViewModel @Inject constructor(
                 else -> RecognitionConfig(cloudEnabled = true)
             }
 
+            _uiState.update {
+                it.copy(stage = if (config.cloudEnabled) AnalysisStage.UPLOADING else AnalysisStage.IDENTIFYING)
+            }
+
             orchestrator.recognize(captureId, image, config).collect { event ->
-                _uiState.update { state -> state.reduce(event) }
+                _uiState.update { state -> state.reduce(event).copy(stage = AnalysisStage.IDENTIFYING) }
                 // Nutrition lookup runs after each pass rather than only at the end, so provisional
                 // items show calories instead of a skeleton while the cloud pass is still running.
                 resolveNutritionForCurrentItems()
             }
+
+            _uiState.update { it.copy(stage = AnalysisStage.DONE) }
         }
     }
 
@@ -99,6 +107,7 @@ class ResultsViewModel @Inject constructor(
         val items = _uiState.value.items
         if (items.isEmpty()) return
 
+        _uiState.update { it.copy(stage = AnalysisStage.LOOKING_UP_NUTRITION) }
         val resolved = resolveNutrition(items)
         resolved.forEach { item -> originalEstimates.putIfAbsent(item.id, item.portion.grams) }
 
@@ -174,17 +183,21 @@ class ResultsViewModel @Inject constructor(
         val state = _uiState.value
         if (!state.canConfirm) return
 
-        _uiState.update { it.copy(isLogging = true) }
+        _uiState.update { it.copy(isLogging = true, stage = AnalysisStage.SAVING) }
 
         viewModelScope.launch {
             runCatching {
                 diaryRepository.logMeal(mealType = state.mealType, items = state.items)
                 recordPortionCorrections(state.items)
             }.onSuccess {
-                _uiState.update { it.copy(isLogging = false, loggedSuccessfully = true) }
+                _uiState.update { it.copy(isLogging = false, stage = AnalysisStage.DONE, loggedSuccessfully = true) }
             }.onFailure { error ->
                 _uiState.update {
-                    it.copy(isLogging = false, errorMessage = error.message ?: "Could not save this meal.")
+                    it.copy(
+                        isLogging = false,
+                        stage = AnalysisStage.DONE,
+                        errorMessage = error.message ?: "Could not save this meal.",
+                    )
                 }
             }
         }

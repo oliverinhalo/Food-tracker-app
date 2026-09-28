@@ -34,6 +34,8 @@ jobs:
         run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: Assemble debug APK
+        env:
+          USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Lint
