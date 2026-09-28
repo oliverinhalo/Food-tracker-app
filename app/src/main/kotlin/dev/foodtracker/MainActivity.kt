@@ -64,6 +64,8 @@ class MainActivity : ComponentActivity() {
 private fun FoodTrackerApp() {
     val navController = rememberNavController()
     var pendingCaptureId by remember { mutableStateOf<String?>(null) }
+    var manualEntryOpen by remember { mutableStateOf(false) }
+    val resultsViewModel: ResultsViewModel = hiltViewModel()
 
     Scaffold(
         bottomBar = { BottomBar(navController) },
@@ -71,15 +73,20 @@ private fun FoodTrackerApp() {
         FoodTrackerNavHost(
             navController = navController,
             onShowResults = { pendingCaptureId = it },
+            onAddManually = {
+                manualEntryOpen = true
+                resultsViewModel.startManualEntry()
+            },
             modifier = Modifier.padding(padding),
         )
     }
 
-    pendingCaptureId?.let { captureId ->
-        val resultsViewModel: ResultsViewModel = hiltViewModel()
+    if (pendingCaptureId != null || manualEntryOpen) {
         val state by resultsViewModel.uiState.collectAsStateWithLifecycle()
 
-        LaunchedEffect(captureId) { resultsViewModel.analyze(captureId) }
+        pendingCaptureId?.let { captureId ->
+            LaunchedEffect(captureId) { resultsViewModel.analyze(captureId) }
+        }
 
         ResultsBottomSheet(
             state = state,
@@ -87,9 +94,13 @@ private fun FoodTrackerApp() {
             onBarcodeScanned = resultsViewModel::onBarcodeScanned,
             onBarcodeScanCancelled = resultsViewModel::onBarcodeScanCancelled,
             onDismiss = {
+                val cameFromCapture = pendingCaptureId != null
                 pendingCaptureId = null
-                navController.navigate(HomeRouteKey) {
-                    popUpTo(HomeRouteKey) { inclusive = true }
+                manualEntryOpen = false
+                if (cameFromCapture) {
+                    navController.navigate(HomeRouteKey) {
+                        popUpTo(HomeRouteKey) { inclusive = true }
+                    }
                 }
             },
         )

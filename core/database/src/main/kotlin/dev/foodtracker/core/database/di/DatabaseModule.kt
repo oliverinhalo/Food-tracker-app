@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.foodtracker.core.database.FoodTrackerDatabase
+import dev.foodtracker.core.database.Migrations
 import dev.foodtracker.core.database.dao.DiaryDao
 import dev.foodtracker.core.database.dao.FoodDao
 import javax.inject.Singleton
@@ -20,6 +21,7 @@ object DatabaseModule {
     @Singleton
     fun providesDatabase(@ApplicationContext context: Context): FoodTrackerDatabase =
         Room.databaseBuilder(context, FoodTrackerDatabase::class.java, FoodTrackerDatabase.NAME)
+            .addMigrations(*Migrations.ALL)
             .build()
 
     @Provides

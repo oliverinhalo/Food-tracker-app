@@ -35,6 +35,7 @@ data class ResultsRouteKey(val captureId: String)
 fun FoodTrackerNavHost(
     navController: NavHostController,
     onShowResults: (String) -> Unit,
+    onAddManually: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NavHost(
@@ -43,7 +44,7 @@ fun FoodTrackerNavHost(
         modifier = modifier,
     ) {
         composable<HomeRouteKey> {
-            HomeRoute()
+            HomeRoute(onAddManually = onAddManually)
         }
 
         composable<CaptureRouteKey> {

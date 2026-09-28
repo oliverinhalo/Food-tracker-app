@@ -110,7 +110,8 @@ class DiaryRepository @Inject constructor(
 
     suspend fun deleteMeal(mealId: String) = withContext(ioDispatcher) { diaryDao.deleteMeal(mealId) }
 
-    fun favourites(limit: Int = 30): Flow<List<FavouriteFoodEntity>> = diaryDao.favourites(limit)
+    fun favourites(limit: Int = 30): Flow<List<FavouriteFood>> =
+        diaryDao.favourites(limit).map { rows -> rows.map { it.toDomain() } }
 
     /** Every logged item bumps its food's use count, which is what drives the recents list. */
     private suspend fun rememberAsFavourite(row: LoggedFoodItemEntity) {
@@ -151,4 +152,13 @@ private fun MealWithItems.toDomain(): LoggedMeal = LoggedMeal(
             ),
         )
     },
+)
+
+private fun FavouriteFoodEntity.toDomain() = FavouriteFood(
+    foodKey = foodKey,
+    name = name,
+    brand = brand,
+    cachedFoodId = cachedFoodId,
+    useCount = useCount,
+    lastUsedMillis = lastUsedMillis,
 )

@@ -9,8 +9,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.NoMeals
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,20 +33,23 @@ object HomeTestTags {
     const val CALORIE_RING = "home_calorie_ring"
     const val EMPTY_STATE = "home_empty_state"
     const val MEAL_LIST = "home_meal_list"
+    const val ADD_MANUALLY = "home_add_manually"
 }
 
 @Composable
 fun HomeRoute(
+    onAddManually: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    HomeScreen(state = state, modifier = modifier)
+    HomeScreen(state = state, onAddManually = onAddManually, modifier = modifier)
 }
 
 @Composable
 internal fun HomeScreen(
     state: HomeUiState,
+    onAddManually: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -54,11 +60,21 @@ internal fun HomeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Text(
-            text = "Today",
-            style = MaterialTheme.typography.headlineSmall,
+        Row(
             modifier = Modifier.fillMaxWidth(),
-        )
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(text = "Today", style = MaterialTheme.typography.headlineSmall)
+            // Not everything can be photographed: a coffee already drunk, a packet in a bag.
+            TextButton(
+                onClick = onAddManually,
+                modifier = Modifier.testTag(HomeTestTags.ADD_MANUALLY),
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Text("  Add food")
+            }
+        }
 
         CalorieRing(
             consumed = state.consumedCalories,

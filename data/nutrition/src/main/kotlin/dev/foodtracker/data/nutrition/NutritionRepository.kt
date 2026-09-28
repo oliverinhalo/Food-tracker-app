@@ -109,6 +109,9 @@ class NutritionRepository @Inject constructor(
         const val CANDIDATE_POOL = 25
     }
 
+    /** A previously cached food by id, for recents and favourites. */
+    suspend fun cachedById(id: String): FoodRecord? = foodDao.byId(id)?.toRecord()
+
     suspend fun cache(records: List<FoodRecord>) {
         if (records.isEmpty()) return
         foodDao.upsertAll(records.map { it.toEntity(timeProvider.epochMillis()) })

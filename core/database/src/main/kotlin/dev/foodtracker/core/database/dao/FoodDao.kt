@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import dev.foodtracker.core.database.entity.CachedFoodEntity
+import dev.foodtracker.core.database.entity.PendingAnalysisEntity
 import dev.foodtracker.core.database.entity.PortionCorrectionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -54,4 +55,19 @@ interface FoodDao {
 
     @Query("SELECT * FROM portion_corrections")
     fun allCorrections(): Flow<List<PortionCorrectionEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun enqueueAnalysis(pending: PendingAnalysisEntity)
+
+    @Query("SELECT * FROM pending_analyses ORDER BY queuedAtMillis ASC LIMIT :limit")
+    suspend fun pendingAnalyses(limit: Int = 10): List<PendingAnalysisEntity>
+
+    @Query("SELECT COUNT(*) FROM pending_analyses")
+    fun pendingAnalysisCount(): Flow<Int>
+
+    @Query("UPDATE pending_analyses SET attempts = attempts + 1, lastAttemptMillis = :nowMillis WHERE captureId = :captureId")
+    suspend fun markAttempted(captureId: String, nowMillis: Long)
+
+    @Query("DELETE FROM pending_analyses WHERE captureId = :captureId")
+    suspend fun dequeueAnalysis(captureId: String)
 }

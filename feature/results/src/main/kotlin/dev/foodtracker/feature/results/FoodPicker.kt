@@ -32,9 +32,11 @@ data class FoodPickerState(
     val isSearching: Boolean = false,
     val suggestions: List<FoodOption> = emptyList(),
     val results: List<FoodOption> = emptyList(),
+    val recents: List<FoodOption> = emptyList(),
     val message: String? = null,
     val isScanning: Boolean = false,
 ) {
-    /** Suggestions are only worth showing before the user starts typing their own query. */
+    /** Suggestions and recents are only worth showing before the user types their own query. */
     val showSuggestions: Boolean get() = query.isBlank() && suggestions.isNotEmpty()
+    val showRecents: Boolean get() = query.isBlank() && recents.isNotEmpty()
 }

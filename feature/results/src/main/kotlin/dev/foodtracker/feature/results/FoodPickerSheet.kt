@@ -115,13 +115,22 @@ internal fun FoodPickerSheet(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 if (state.showSuggestions) {
-                    item {
-                        SectionLabel("The AI's other guesses")
-                    }
+                    item { SectionLabel("The AI's other guesses") }
                     items(state.suggestions, key = { it.id }) { option ->
                         FoodOptionRow(option) { onAction(ResultsAction.SelectFood(option)) }
                     }
                     item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
+                }
+
+                if (state.showRecents) {
+                    item { SectionLabel("You log these often") }
+                    items(state.recents, key = { "recent-" + it.id }) { option ->
+                        FoodOptionRow(option) { onAction(ResultsAction.SelectFood(option)) }
+                    }
+                    item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
+                }
+
+                if (state.showSuggestions || state.showRecents) {
                     item { SectionLabel("From the food databases") }
                 }
 

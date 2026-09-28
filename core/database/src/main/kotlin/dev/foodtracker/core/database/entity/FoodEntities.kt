@@ -56,3 +56,16 @@ data class PortionCorrectionEntity(
     val correctedGrams: Double,
     val recordedAtMillis: Long,
 )
+
+/**
+ * A capture parked for a later cloud pass, because the network or the key was missing when it was
+ * taken. The JPEG stays on disk; only its path is stored, so the table stays small.
+ */
+@Entity(tableName = "pending_analyses")
+data class PendingAnalysisEntity(
+    @PrimaryKey val captureId: String,
+    val imagePath: String,
+    val queuedAtMillis: Long,
+    val attempts: Int = 0,
+    val lastAttemptMillis: Long? = null,
+)

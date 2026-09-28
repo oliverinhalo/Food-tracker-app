@@ -11,6 +11,7 @@ import dev.foodtracker.core.database.entity.FavouriteFoodEntity
 import dev.foodtracker.core.database.entity.FoodSource
 import dev.foodtracker.core.database.entity.LoggedFoodItemEntity
 import dev.foodtracker.core.database.entity.LoggedMealEntity
+import dev.foodtracker.core.database.entity.PendingAnalysisEntity
 import dev.foodtracker.core.database.entity.PortionCorrectionEntity
 
 class Converters {
@@ -29,8 +30,9 @@ class Converters {
         LoggedMealEntity::class,
         LoggedFoodItemEntity::class,
         FavouriteFoodEntity::class,
+        PendingAnalysisEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

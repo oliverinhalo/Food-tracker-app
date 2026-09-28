@@ -60,6 +60,26 @@ class ResultsViewModel @Inject constructor(
 
     private var searchJob: Job? = null
 
+    /**
+     * Opens the sheet with no photo behind it, for foods that cannot be photographed -- a coffee
+     * already drunk, a packet in a bag, yesterday's dinner. Reuses the whole editing and logging
+     * path rather than growing a second one.
+     */
+    fun startManualEntry() {
+        analysisJob?.cancel()
+        captureId = null
+        originalEstimates.clear()
+
+        val item = newManualItem()
+        _uiState.value = ResultsUiState(
+            phase = AnalysisPhase.COMPLETE,
+            stage = AnalysisStage.DONE,
+            items = listOf(item),
+            mealType = MealType.suggestedFor(timeProvider.now()),
+        )
+        openPicker(item.id)
+    }
+
     fun analyze(captureId: String) {
         if (this.captureId == captureId && analysisJob?.isActive == true) return
         this.captureId = captureId
@@ -222,7 +242,46 @@ class ResultsViewModel @Inject constructor(
         }
 
         // Seed with the item's own name so the list is useful before the user types anything.
-        if (item.name.isNotBlank()) runSearch(item.name, showQuery = false)
+        if (item.name.isNotBlank()) {
+            runSearch(item.name, showQuery = false)
+        } else {
+            loadRecents()
+        }
+    }
+
+    /**
+     * Foods this person logs often, offered before they type anything. Most days are made of the
+     * same handful of meals, so this is the difference between logging breakfast in one tap and
+     * searching for porridge every morning.
+     */
+    private fun loadRecents() {
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            val favourites = diaryRepository.favourites(limit = 12).first()
+            if (favourites.isEmpty()) return@launch
+
+            val options = favourites.mapNotNull { favourite ->
+                val record = favourite.cachedFoodId?.let { nutritionRepository.cachedById(it) }
+                if (record != null) {
+                    offeredRecords[record.id] = record
+                    record.toOption()
+                } else {
+                    FoodOption(
+                        id = "recent:${favourite.foodKey}",
+                        name = favourite.name,
+                        brand = favourite.brand,
+                        caloriesPer100g = 0,
+                        origin = FoodOption.Origin.AI_SUGGESTION,
+                    )
+                }
+            }
+
+            _uiState.update { state ->
+                val picker = state.picker ?: return@update state
+                if (picker.query.isNotBlank()) return@update state
+                state.copy(picker = picker.copy(recents = options))
+            }
+        }
     }
 
     private fun onPickerQueryChanged(query: String) {
