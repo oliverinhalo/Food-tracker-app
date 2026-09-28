@@ -49,8 +49,8 @@ internal fun QuantityEditor(
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
-    val step = PortionConversion.stepFor(unit)
-    val sliderMax = PortionConversion.sliderMaxFor(unit)
+    val step = PortionControls.stepFor(unit)
+    val sliderMax = PortionControls.sliderMaxFor(unit)
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(

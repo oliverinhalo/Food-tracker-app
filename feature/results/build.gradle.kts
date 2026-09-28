@@ -8,6 +8,9 @@ android {
 
 dependencies {
     implementation(project(":domain:recognition"))
+    implementation(project(":domain:nutrition"))
+    implementation(project(":data:nutrition"))
+    implementation(project(":data:diary"))
     implementation(project(":data:recognition"))
     implementation(project(":core:datastore"))
     implementation(libs.compose.material.icons.extended)

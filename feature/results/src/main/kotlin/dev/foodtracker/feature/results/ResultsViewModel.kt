@@ -12,7 +12,13 @@ import dev.foodtracker.core.model.MeasurementUnit
 import dev.foodtracker.core.model.Portion
 import dev.foodtracker.core.model.RecognitionEvent
 import dev.foodtracker.core.model.RecognitionSource
+import dev.foodtracker.data.diary.DiaryRepository
 import dev.foodtracker.data.recognition.CaptureStore
+import dev.foodtracker.data.nutrition.NutritionRepository
+import dev.foodtracker.data.nutrition.ResolveNutrition
+import dev.foodtracker.domain.nutrition.FoodCategory
+import dev.foodtracker.domain.nutrition.UnitConverter
+import dev.foodtracker.domain.nutrition.foodKeyOf
 import dev.foodtracker.domain.recognition.RecognitionConfig
 import dev.foodtracker.domain.recognition.RecognitionOrchestrator
 import kotlinx.coroutines.Job
@@ -30,14 +36,22 @@ class ResultsViewModel @Inject constructor(
     private val orchestrator: RecognitionOrchestrator,
     private val settingsRepository: SettingsRepository,
     private val captureStore: CaptureStore,
+    private val nutritionRepository: NutritionRepository,
+    private val resolveNutrition: ResolveNutrition,
+    private val diaryRepository: DiaryRepository,
     private val timeProvider: TimeProvider,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ResultsUiState())
     val uiState: StateFlow<ResultsUiState> = _uiState.asStateFlow()
 
+    private val converter = UnitConverter()
+
     private var analysisJob: Job? = null
     private var captureId: String? = null
+
+    /** What the recogniser first proposed, so a later edit can be measured against it. */
+    private val originalEstimates = mutableMapOf<String, Double>()
 
     fun analyze(captureId: String) {
         if (this.captureId == captureId && analysisJob?.isActive == true) return
@@ -74,25 +88,64 @@ class ResultsViewModel @Inject constructor(
 
             orchestrator.recognize(captureId, image, config).collect { event ->
                 _uiState.update { state -> state.reduce(event) }
+                // Nutrition lookup runs after each pass rather than only at the end, so provisional
+                // items show calories instead of a skeleton while the cloud pass is still running.
+                resolveNutritionForCurrentItems()
             }
+        }
+    }
+
+    private suspend fun resolveNutritionForCurrentItems() {
+        val items = _uiState.value.items
+        if (items.isEmpty()) return
+
+        val resolved = resolveNutrition(items)
+        resolved.forEach { item -> originalEstimates.putIfAbsent(item.id, item.portion.grams) }
+
+        _uiState.update { state ->
+            // The user may have edited while the lookup was in flight; their version wins.
+            val edited = state.items.associateBy { it.id }
+            state.copy(
+                items = resolved.map { item ->
+                    val live = edited[item.id]
+                    if (live != null && live.source == RecognitionSource.USER) {
+                        live.copy(nutrientsPer100g = live.nutrientsPer100g ?: item.nutrientsPer100g)
+                    } else {
+                        item
+                    }
+                },
+            )
         }
     }
 
     fun onAction(action: ResultsAction) {
         when (action) {
             is ResultsAction.ChangeQuantity -> updateItem(action.itemId) { item ->
-                item.withPortion(amount = action.amount, unit = item.portion.unit)
+                item.withPortion(action.amount, item.portion.unit, converter)
             }
 
             is ResultsAction.ChangeUnit -> updateItem(action.itemId) { item ->
-                // Keep the mass the user already settled on and re-express it in the new unit,
-                // rather than reinterpreting "150" as 150 cups.
-                val amountInNewUnit = PortionConversion.fromGrams(item.portion.grams, action.unit)
-                item.withPortion(amount = amountInNewUnit, unit = action.unit)
+                // Keep the mass the user settled on and re-express it, rather than reinterpreting
+                // "150" as 150 cups.
+                val profile = FoodCategory.profileFor(item.name)
+                item.copy(
+                    portion = converter.convert(item.portion, action.unit, profile, foodKeyOf(item.name, item.brand)),
+                    source = RecognitionSource.USER,
+                )
             }
 
-            is ResultsAction.ChangeItemName -> updateItem(action.itemId) { item ->
-                item.copy(name = action.name, source = RecognitionSource.USER, confidence = 1f)
+            is ResultsAction.ChangeItemName -> {
+                updateItem(action.itemId) { item ->
+                    // A different food means different nutrition; clear it so it re-resolves.
+                    item.copy(
+                        name = action.name,
+                        source = RecognitionSource.USER,
+                        confidence = 1f,
+                        nutrientsPer100g = null,
+                        foodId = null,
+                    )
+                }
+                viewModelScope.launch { resolveNutritionForCurrentItems() }
             }
 
             is ResultsAction.RemoveItem -> _uiState.update { state ->
@@ -118,11 +171,40 @@ class ResultsViewModel @Inject constructor(
     }
 
     private fun confirm() {
-        // Phase 2 writes this to the diary; for now the sheet just closes cleanly so the flow and
-        // its UI tests are exercisable end to end.
+        val state = _uiState.value
+        if (!state.canConfirm) return
+
         _uiState.update { it.copy(isLogging = true) }
+
         viewModelScope.launch {
-            _uiState.update { it.copy(isLogging = false, loggedSuccessfully = true) }
+            runCatching {
+                diaryRepository.logMeal(mealType = state.mealType, items = state.items)
+                recordPortionCorrections(state.items)
+            }.onSuccess {
+                _uiState.update { it.copy(isLogging = false, loggedSuccessfully = true) }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(isLogging = false, errorMessage = error.message ?: "Could not save this meal.")
+                }
+            }
+        }
+    }
+
+    /**
+     * Teaches the app how this person actually portions each food. Only items the user visibly
+     * changed count -- logging an untouched estimate says nothing about their habits, and treating
+     * it as confirmation would lock in the recogniser's own bias.
+     */
+    private suspend fun recordPortionCorrections(items: List<DetectedItem>) {
+        items.forEach { item ->
+            if (item.source != RecognitionSource.USER) return@forEach
+            val original = originalEstimates[item.id] ?: return@forEach
+            nutritionRepository.recordCorrection(
+                foodKey = foodKeyOf(item.name, item.brand),
+                unit = item.portion.unit,
+                estimatedGrams = original,
+                correctedGrams = item.portion.grams,
+            )
         }
     }
 
@@ -142,17 +224,15 @@ class ResultsViewModel @Inject constructor(
 }
 
 /** A portion edit always recomputes grams, so nutrition never reads a stale mass. */
-internal fun DetectedItem.withPortion(amount: Double, unit: MeasurementUnit): DetectedItem {
+internal fun DetectedItem.withPortion(
+    amount: Double,
+    unit: MeasurementUnit,
+    converter: UnitConverter,
+): DetectedItem {
     val safeAmount = amount.coerceAtLeast(0.0)
+    val profile = FoodCategory.profileFor(name)
     return copy(
-        portion = Portion(
-            amount = safeAmount,
-            unit = unit,
-            grams = PortionConversion.toGrams(safeAmount, unit),
-            // The recogniser's phrasing ("1 cup") describes the original estimate, so it stops
-            // being true the moment the user changes the amount.
-            householdDescription = null,
-        ),
+        portion = converter.portionOf(safeAmount, unit, profile, foodKeyOf(name, brand)),
         source = RecognitionSource.USER,
     )
 }

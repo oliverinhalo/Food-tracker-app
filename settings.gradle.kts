@@ -48,7 +48,11 @@ include(":core:network")
 include(":core:datastore")
 
 include(":domain:recognition")
+include(":domain:nutrition")
 include(":data:recognition")
+include(":data:nutrition")
+include(":data:diary")
+include(":core:database")
 
 include(":feature:capture")
 include(":feature:results")

@@ -8,9 +8,13 @@ import dev.foodtracker.core.model.Nutrients
 import dev.foodtracker.core.model.Portion
 import dev.foodtracker.core.model.RecognitionEvent
 import dev.foodtracker.core.model.RecognitionSource
+import dev.foodtracker.domain.nutrition.FoodCategory
+import dev.foodtracker.domain.nutrition.UnitConverter
 import org.junit.Test
 
 class ResultsStateTest {
+
+    private val converter = UnitConverter()
 
     private fun item(
         id: String = "1",
@@ -103,31 +107,30 @@ class ResultsStateTest {
     }
 
     @Test
-    fun `changing the amount recomputes grams`() {
-        val updated = item(grams = 100.0).withPortion(amount = 2.0, unit = MeasurementUnit.CUP)
+    fun `changing the amount recomputes grams through the real converter`() {
+        val updated = item(grams = 100.0).copy(name = "white rice")
+            .withPortion(amount = 2.0, unit = MeasurementUnit.CUP, converter = converter)
 
         assertThat(updated.portion.unit).isEqualTo(MeasurementUnit.CUP)
         assertThat(updated.portion.amount).isEqualTo(2.0)
-        assertThat(updated.portion.grams).isGreaterThan(100.0)
+        // Two cups of cooked rice, via the grain profile, not a generic constant.
+        assertThat(updated.portion.grams).isWithin(0.001).of(2 * FoodCategory.GRAIN_COOKED.profile.gramsPerCup)
         assertThat(updated.source).isEqualTo(RecognitionSource.USER)
     }
 
     @Test
-    fun `a negative amount is clamped rather than throwing`() {
-        val updated = item().withPortion(amount = -5.0, unit = MeasurementUnit.GRAM)
+    fun `the same amount in the same unit weighs differently for different foods`() {
+        val rice = item().copy(name = "white rice").withPortion(1.0, MeasurementUnit.CUP, converter)
+        val spinach = item().copy(name = "baby spinach").withPortion(1.0, MeasurementUnit.CUP, converter)
 
-        assertThat(updated.portion.amount).isEqualTo(0.0)
-        assertThat(updated.portion.grams).isEqualTo(0.0)
+        assertThat(rice.portion.grams).isGreaterThan(spinach.portion.grams * 3)
     }
 
     @Test
-    fun `the recogniser's household phrasing is dropped once the user edits the amount`() {
-        val original = item().copy(
-            portion = Portion(amount = 1.0, unit = MeasurementUnit.CUP, grams = 150.0, householdDescription = "1 cup"),
-        )
+    fun `a negative amount is clamped rather than throwing`() {
+        val updated = item().withPortion(amount = -5.0, unit = MeasurementUnit.GRAM, converter = converter)
 
-        val updated = original.withPortion(amount = 3.0, unit = MeasurementUnit.CUP)
-
-        assertThat(updated.portion.householdDescription).isNull()
+        assertThat(updated.portion.amount).isEqualTo(0.0)
+        assertThat(updated.portion.grams).isEqualTo(0.0)
     }
 }

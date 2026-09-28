@@ -4,9 +4,9 @@ A native Android calorie tracker: photograph a meal, and the app identifies each
 estimates portions, and shows calories and macros — with an on-device first pass so results appear
 instantly, and a cloud pass that refines them.
 
-> **Status:** phases 0–1 complete (project skeleton, camera capture, Gemini detection, results
-> bottom sheet). Nutrition lookup, the diary, the on-device model and brand/barcode support land in
-> later phases — see [Roadmap](#roadmap).
+> **Status:** phases 0–2 complete (project skeleton, camera capture, Gemini detection, results
+> bottom sheet, nutrition lookup, portion maths and the diary). The on-device model and
+> brand/barcode support land in later phases — see [Roadmap](#roadmap).
 
 ## Getting the app
 
@@ -79,8 +79,12 @@ core/common             dispatchers, time provider
 core/ui                 theme (dynamic colour + dark mode) and shared components
 core/network            OkHttp/Retrofit/JSON setup, retry + backoff, connectivity
 core/datastore          settings DataStore and the encrypted key store
+core/database           Room: cached foods, diary, portion corrections
 domain/recognition      recogniser interfaces, merge logic, pipeline orchestration
+domain/nutrition        portion maths, density tables, portion learning
 data/recognition        Gemini client, image compression, capture store
+data/nutrition          USDA + Open Food Facts clients, cache-first repository
+data/diary              meal logging, day totals, favourites
 feature/capture         CameraX capture and permission states
 feature/results         the results bottom sheet
 feature/home            today's ring and macros
@@ -112,16 +116,59 @@ than it rate-limits, so a single hardcoded model name makes the feature look bro
 `GeminiModels.FALLBACK_CHAIN` walks down to older Flash models on 503/404, and a 429 stops
 immediately (it is per-key, so a different model won't help) and degrades to local results.
 
+### Nutrition
+
+USDA FoodData Central covers generic foods and Open Food Facts covers branded ones. Lookups are
+cache-first, so a repeat food resolves without a network call and the app stays usable offline; a
+miss queries both sources concurrently rather than in sequence.
+
+Three things in this layer exist because the real APIs misbehave:
+
+- **Energy units.** USDA Foundation and SR Legacy rows often carry energy only as kilojoules
+  (nutrient 1062), not kilocalories. Reading only the kcal field leaves common staples with no
+  calories at all.
+- **Implausible rows.** Open Food Facts is crowd-sourced and routinely carries rows whose stated
+  energy contradicts their own macros by an order of magnitude — usually kJ typed into the kcal
+  field. Such a row would quietly wreck a day's total, so energy is cross-checked against Atwater
+  factors and replaced when it cannot be right.
+- **Two different hosts.** `world.openfoodfacts.org` serves barcode lookups reliably but returns
+  503 for *text search* on both its v2 and legacy endpoints. Brand search therefore goes to
+  `search.openfoodfacts.org`. Pointing both at the obvious host ships a brand search that is
+  always empty.
+
+Sodium is also normalised: USDA reports milligrams, Open Food Facts reports grams.
+
+### Portions
+
+Volume and count units are meaningless without knowing the food: a cup of spinach is ~30 g and a
+cup of cooked rice is ~185 g. `FoodCategory` maps a label to one of twenty density profiles, with a
+generic fallback, and a portion always carries its resolved mass so changing the display unit never
+changes how much was logged.
+
+**Learning.** Every portion you correct is recorded, and future estimates for that food are blended
+toward your history — cautiously at first, more confidently as samples accumulate, and never
+completely, since the camera is looking at *this* plate. Corrections are weighted by recency, and a
+trivial nudge (150 g to 152 g) is ignored rather than diluting the signal.
+
 ## Testing
 
 ```bash
-./gradlew testDebugUnitTest          # portion maths, merge logic, state reduction
+./gradlew testDebugUnitTest          # portion maths, merge logic, API mapping, state reduction
 ./gradlew connectedAndroidTest       # bottom-sheet flow (needs a device or emulator)
 ```
 
-Unit tests cover the parts where bugs are invisible rather than loud: the per-100g → portion
-scaling, unit round-tripping, label similarity thresholds, and every merge case (user edits winning,
-occluded duplicates, alternatives de-duplication).
+Unit tests cover the parts where bugs are invisible rather than loud: per-100g → portion scaling,
+unit round-tripping across every category, label similarity thresholds, every merge case (user edits
+winning, occluded duplicates, alternatives de-duplication), the portion learner's confidence ramp,
+and the API quirks above (kJ conversion, sodium units, implausible-energy correction).
+
+Two scripts check the live APIs, which unit tests cannot: they catch an endpoint disappearing or a
+field being renamed upstream.
+
+```bash
+GEMINI_API_KEY=... python3 tools/check_gemini.py      # recognition request + schema
+USDA_API_KEY=...   python3 tools/check_nutrition.py   # USDA + Open Food Facts
+```
 
 ## Roadmap
 
@@ -129,7 +176,7 @@ occluded duplicates, alternatives de-duplication).
 | --- | --- | --- |
 | 0 | Project skeleton, modules, DI, theme, CI, releases | ✅ |
 | 1 | CameraX capture, Gemini detection, results bottom sheet | ✅ |
-| 2 | USDA + Open Food Facts, Room cache, portion maths, diary, Home | ⏳ |
+| 2 | USDA + Open Food Facts, Room cache, portion maths, diary, Home | ✅ |
 | 3 | TFLite + ML Kit local pass, offline queue, Gemini Nano | ⏳ |
 | 4 | Brands, barcode scanning, favourites, portion learning, History | ⏳ |
 | 5 | Baseline profile, shared-element transitions, a11y pass, polish | ⏳ |

@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,6 +29,7 @@ import dev.foodtracker.core.ui.component.MessageState
 object HomeTestTags {
     const val CALORIE_RING = "home_calorie_ring"
     const val EMPTY_STATE = "home_empty_state"
+    const val MEAL_LIST = "home_meal_list"
 }
 
 @Composable
@@ -101,6 +103,40 @@ internal fun HomeScreen(
                 body = "Tap the camera button to scan your first meal of the day.",
                 modifier = Modifier.testTag(HomeTestTags.EMPTY_STATE),
             )
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth().testTag(HomeTestTags.MEAL_LIST),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Meals", style = MaterialTheme.typography.titleSmall, modifier = Modifier.fillMaxWidth())
+                state.meals.forEach { meal -> MealRow(meal) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MealRow(meal: MealSummary) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = meal.mealType.name.lowercase().replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = meal.itemNames.joinToString(", ").ifBlank { "No items" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text("${meal.calories} kcal", style = MaterialTheme.typography.titleSmall)
         }
     }
 }
