@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -35,6 +36,7 @@ import dev.foodtracker.feature.results.ResultsViewModel
 import dev.foodtracker.feature.settings.SettingsViewModel
 import dev.foodtracker.navigation.CaptureRouteKey
 import dev.foodtracker.navigation.FoodTrackerNavHost
+import dev.foodtracker.navigation.HistoryRouteKey
 import dev.foodtracker.navigation.HomeRouteKey
 import dev.foodtracker.navigation.SettingsRouteKey
 
@@ -82,6 +84,8 @@ private fun FoodTrackerApp() {
         ResultsBottomSheet(
             state = state,
             onAction = resultsViewModel::onAction,
+            onBarcodeScanned = resultsViewModel::onBarcodeScanned,
+            onBarcodeScanCancelled = resultsViewModel::onBarcodeScanCancelled,
             onDismiss = {
                 pendingCaptureId = null
                 navController.navigate(HomeRouteKey) {
@@ -109,6 +113,12 @@ private fun BottomBar(navController: NavHostController) {
             onClick = { navController.navigateSingleTop(CaptureRouteKey) },
             icon = { Icon(Icons.Default.PhotoCamera, contentDescription = null) },
             label = { Text("Scan") },
+        )
+        NavigationBarItem(
+            selected = destination?.hasRoute(HistoryRouteKey::class) == true,
+            onClick = { navController.navigateSingleTop(HistoryRouteKey) },
+            icon = { Icon(Icons.Default.Timeline, contentDescription = null) },
+            label = { Text("History") },
         )
         NavigationBarItem(
             selected = destination?.hasRoute(SettingsRouteKey::class) == true,

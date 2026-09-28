@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import dev.foodtracker.feature.capture.CaptureRoute
+import dev.foodtracker.feature.history.HistoryRoute
 import dev.foodtracker.feature.home.HomeRoute
 import dev.foodtracker.feature.settings.SettingsRoute
 import kotlinx.serialization.Serializable
@@ -16,6 +17,9 @@ data object HomeRouteKey
 
 @Serializable
 data object CaptureRouteKey
+
+@Serializable
+data object HistoryRouteKey
 
 @Serializable
 data object SettingsRouteKey
@@ -44,6 +48,10 @@ fun FoodTrackerNavHost(
 
         composable<CaptureRouteKey> {
             CaptureRoute(onCaptureReady = onShowResults)
+        }
+
+        composable<HistoryRouteKey> {
+            HistoryRoute()
         }
 
         composable<SettingsRouteKey> {

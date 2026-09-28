@@ -11,6 +11,10 @@ object ResultsTestTags {
     const val MEAL_TYPE_ROW = "results_meal_type_row"
     const val STAGE_LABEL = "results_stage_label"
     const val ANALYZING = "results_analyzing"
+    const val PICKER_SHEET = "results_picker_sheet"
+    const val PICKER_SEARCH_FIELD = "results_picker_search"
+    const val PICKER_RESULTS = "results_picker_results"
+    const val PICKER_SCAN = "results_picker_scan"
 
     fun itemCard(id: String) = "results_item_$id"
     fun itemIncrement(id: String) = "results_item_inc_$id"

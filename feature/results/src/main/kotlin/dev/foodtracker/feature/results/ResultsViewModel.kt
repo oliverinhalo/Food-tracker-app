@@ -14,6 +14,7 @@ import dev.foodtracker.core.model.RecognitionEvent
 import dev.foodtracker.core.model.RecognitionSource
 import dev.foodtracker.data.diary.DiaryRepository
 import dev.foodtracker.data.recognition.CaptureStore
+import dev.foodtracker.data.nutrition.FoodRecord
 import dev.foodtracker.data.nutrition.NutritionRepository
 import dev.foodtracker.data.nutrition.ResolveNutrition
 import dev.foodtracker.domain.nutrition.FoodCategory
@@ -22,6 +23,7 @@ import dev.foodtracker.domain.nutrition.foodKeyOf
 import dev.foodtracker.domain.recognition.RecognitionConfig
 import dev.foodtracker.domain.recognition.RecognitionOrchestrator
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,6 +54,11 @@ class ResultsViewModel @Inject constructor(
 
     /** What the recogniser first proposed, so a later edit can be measured against it. */
     private val originalEstimates = mutableMapOf<String, Double>()
+
+    /** Records behind the options currently on offer, so a pick can apply full nutrition. */
+    private val offeredRecords = mutableMapOf<String, FoodRecord>()
+
+    private var searchJob: Job? = null
 
     fun analyze(captureId: String) {
         if (this.captureId == captureId && analysisJob?.isActive == true) return
@@ -173,10 +180,136 @@ class ResultsViewModel @Inject constructor(
                 state.copy(items = state.items + newManualItem())
             }
 
+            is ResultsAction.OpenPicker -> openPicker(action.itemId)
+
+            ResultsAction.ClosePicker -> {
+                searchJob?.cancel()
+                _uiState.update { it.copy(picker = null) }
+            }
+
+            is ResultsAction.PickerQueryChanged -> onPickerQueryChanged(action.query)
+
+            is ResultsAction.SelectFood -> applyFoodChoice(action.option)
+
+            is ResultsAction.ScanBarcode ->
+                _uiState.update { it.copy(picker = it.picker?.copy(isScanning = true)) }
+
             ResultsAction.Retry -> captureId?.let { analyze(it) }
 
             ResultsAction.Confirm -> confirm()
         }
+    }
+
+    private fun openPicker(itemId: String) {
+        val item = _uiState.value.items.firstOrNull { it.id == itemId } ?: return
+
+        _uiState.update {
+            it.copy(
+                picker = FoodPickerState(
+                    itemId = itemId,
+                    itemName = item.name,
+                    suggestions = item.alternatives.map { alternative ->
+                        FoodOption(
+                            id = "ai:${alternative.name}",
+                            name = alternative.name,
+                            brand = null,
+                            caloriesPer100g = 0,
+                            origin = FoodOption.Origin.AI_SUGGESTION,
+                        )
+                    },
+                ),
+            )
+        }
+
+        // Seed with the item's own name so the list is useful before the user types anything.
+        if (item.name.isNotBlank()) runSearch(item.name, showQuery = false)
+    }
+
+    private fun onPickerQueryChanged(query: String) {
+        _uiState.update { it.copy(picker = it.picker?.copy(query = query)) }
+        runSearch(query, showQuery = true)
+    }
+
+    private fun runSearch(query: String, showQuery: Boolean) {
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            _uiState.update { it.copy(picker = it.picker?.copy(results = emptyList(), isSearching = false)) }
+            return
+        }
+
+        searchJob = viewModelScope.launch {
+            // Typing a food name fires a request per keystroke otherwise, and both databases are
+            // rate-limited.
+            if (showQuery) delay(SEARCH_DEBOUNCE_MILLIS)
+
+            _uiState.update { it.copy(picker = it.picker?.copy(isSearching = true, message = null)) }
+
+            val records = runCatching { nutritionRepository.search(query, limit = 20) }
+                .getOrElse { emptyList() }
+
+            records.forEach { offeredRecords[it.id] = it }
+
+            _uiState.update { state ->
+                val picker = state.picker ?: return@update state
+                state.copy(
+                    picker = picker.copy(
+                        isSearching = false,
+                        results = records.map { it.toOption() },
+                        message = if (records.isEmpty()) "No matches. Try a simpler name." else null,
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun applyFoodChoice(option: FoodOption) {
+        val picker = _uiState.value.picker ?: return
+        val record = offeredRecords[option.id]
+
+        updateItem(picker.itemId) { item ->
+            item.copy(
+                name = option.name,
+                brand = record?.brand,
+                source = RecognitionSource.USER,
+                confidence = 1f,
+                // An AI suggestion carries no nutrition of its own, so it has to be looked up.
+                nutrientsPer100g = record?.per100g,
+                foodId = record?.id,
+            )
+        }
+
+        _uiState.update { it.copy(picker = null) }
+        searchJob?.cancel()
+
+        if (record == null) viewModelScope.launch { resolveNutritionForCurrentItems() }
+    }
+
+    /** Result of the barcode scanner: a product lookup that either lands or explains itself. */
+    fun onBarcodeScanned(barcode: String) {
+        _uiState.update { it.copy(picker = it.picker?.copy(isScanning = false, isSearching = true)) }
+
+        viewModelScope.launch {
+            val record = runCatching { nutritionRepository.byBarcode(barcode) }.getOrNull()
+
+            if (record == null) {
+                _uiState.update {
+                    it.copy(
+                        picker = it.picker?.copy(
+                            isSearching = false,
+                            message = "That barcode isn't in Open Food Facts. Try searching by name.",
+                        ),
+                    )
+                }
+                return@launch
+            }
+
+            offeredRecords[record.id] = record
+            applyFoodChoice(record.toOption())
+        }
+    }
+
+    fun onBarcodeScanCancelled() {
+        _uiState.update { it.copy(picker = it.picker?.copy(isScanning = false)) }
     }
 
     private fun confirm() {
@@ -277,3 +410,13 @@ internal fun ResultsUiState.reduce(event: RecognitionEvent): ResultsUiState = wh
         errorMessage = event.message,
     )
 }
+
+private const val SEARCH_DEBOUNCE_MILLIS = 300L
+
+internal fun FoodRecord.toOption(): FoodOption = FoodOption(
+    id = id,
+    name = name,
+    brand = brand,
+    caloriesPer100g = per100g.calories.toInt(),
+    origin = if (barcode != null) FoodOption.Origin.BARCODE else FoodOption.Origin.DATABASE,
+)

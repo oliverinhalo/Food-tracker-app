@@ -99,6 +99,7 @@ dependencies {
     implementation(project(":feature:capture"))
     implementation(project(":feature:results"))
     implementation(project(":feature:home"))
+    implementation(project(":feature:history"))
     implementation(project(":feature:settings"))
 
     implementation(libs.androidx.core.ktx)

@@ -13,5 +13,6 @@ dependencies {
     implementation(project(":data:diary"))
     implementation(project(":data:recognition"))
     implementation(project(":core:datastore"))
+    implementation(project(":core:camera"))
     implementation(libs.compose.material.icons.extended)
 }

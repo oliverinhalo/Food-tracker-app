@@ -38,6 +38,7 @@ data class ResultsUiState(
     val mealType: MealType = MealType.SNACK,
     val degradeReason: DegradeReason? = null,
     val errorMessage: String? = null,
+    val picker: FoodPickerState? = null,
     val isLogging: Boolean = false,
     val loggedSuccessfully: Boolean = false,
 ) {
@@ -64,6 +65,13 @@ data class ResultsUiState(
 
 /** Everything the user can do from the sheet. One sealed type keeps the ViewModel's surface honest. */
 sealed interface ResultsAction {
+    /** Opens the "Change item" picker for one item. */
+    data class OpenPicker(val itemId: String) : ResultsAction
+    data object ClosePicker : ResultsAction
+    data class PickerQueryChanged(val query: String) : ResultsAction
+    data class SelectFood(val option: FoodOption) : ResultsAction
+    data class ScanBarcode(val itemId: String) : ResultsAction
+
     data class ChangeQuantity(val itemId: String, val amount: Double) : ResultsAction
     data class ChangeUnit(val itemId: String, val unit: dev.foodtracker.core.model.MeasurementUnit) : ResultsAction
     data class ChangeItemName(val itemId: String, val name: String) : ResultsAction

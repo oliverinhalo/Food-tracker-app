@@ -14,8 +14,6 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -125,43 +122,22 @@ internal fun FoodItemCard(
                         onUnitChange = { onAction(ResultsAction.ChangeUnit(item.id, it)) },
                     )
 
-                    if (item.alternatives.isNotEmpty()) {
-                        AlternativesPicker(
-                            item = item,
-                            onSelect = { onAction(ResultsAction.ChangeItemName(item.id, it)) },
-                        )
+                    TextButton(
+                        onClick = { onAction(ResultsAction.OpenPicker(item.id)) },
+                        modifier = Modifier
+                            .testTag(ResultsTestTags.itemAlternatives(item.id))
+                            .semantics {
+                                contentDescription = if (item.alternatives.isEmpty()) {
+                                    "Change item. Search the food databases."
+                                } else {
+                                    "Change item. ${item.alternatives.size} suggestions, or search."
+                                }
+                            },
+                    ) {
+                        Text(if (item.nutrientsPer100g == null) "Find this food" else "Change item")
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun AlternativesPicker(
-    item: DetectedItem,
-    onSelect: (String) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    TextButton(
-        onClick = { expanded = true },
-        modifier = Modifier
-            .testTag(ResultsTestTags.itemAlternatives(item.id))
-            .semantics { contentDescription = "Change item. ${item.alternatives.size} suggestions available." },
-    ) {
-        Text("Change item")
-    }
-
-    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-        item.alternatives.forEach { alternative ->
-            DropdownMenuItem(
-                text = { Text(alternative.name) },
-                onClick = {
-                    expanded = false
-                    onSelect(alternative.name)
-                },
-            )
         }
     }
 }

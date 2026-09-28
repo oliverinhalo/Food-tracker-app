@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.foodtracker.core.model.DetectedItem
+import dev.foodtracker.core.camera.BarcodeScannerDialog
 import dev.foodtracker.core.model.MealType
 import dev.foodtracker.core.ui.component.MacroBar
 import dev.foodtracker.core.ui.component.MessageState
@@ -62,6 +63,8 @@ fun ResultsBottomSheet(
     onAction: (ResultsAction) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    onBarcodeScanned: (String) -> Unit = {},
+    onBarcodeScanCancelled: () -> Unit = {},
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
 ) {
     val haptics = rememberHaptics()
@@ -70,6 +73,17 @@ fun ResultsBottomSheet(
         if (state.loggedSuccessfully) {
             haptics.confirm()
             onDismiss()
+        }
+    }
+
+    state.picker?.let { picker ->
+        FoodPickerSheet(state = picker, onAction = onAction)
+
+        if (picker.isScanning) {
+            BarcodeScannerDialog(
+                onBarcode = onBarcodeScanned,
+                onDismiss = onBarcodeScanCancelled,
+            )
         }
     }
 

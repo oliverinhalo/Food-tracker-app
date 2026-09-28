@@ -103,12 +103,18 @@ jobs:
             -PversionName="${{ steps.version.outputs.name }}" \
             -PversionCode="${{ steps.version.outputs.code }}"
 
-      - name: Name the APK after its version
+      - name: Name the APK
         id: apk
         run: |
           set -euo pipefail
           SRC="$(find app/build/outputs/apk/release -name '*.apk' | head -1)"
-          DEST="food-tracker-${{ steps.version.outputs.name }}.apk"
+          if [ "${{ steps.version.outputs.tag }}" = "latest" ]; then
+            # The rolling release keeps ONE asset under a stable name, so it is replaced on every
+            # build instead of the release growing a pile of APKs nobody can tell apart.
+            DEST="food-tracker-latest.apk"
+          else
+            DEST="food-tracker-${{ steps.version.outputs.name }}.apk"
+          fi
           cp "$SRC" "$DEST"
           echo "path=${DEST}" >> "$GITHUB_OUTPUT"
 
@@ -119,6 +125,7 @@ jobs:
             echo "### Food Tracker ${{ steps.version.outputs.name }}"
             echo
             echo "Download **${{ steps.apk.outputs.path }}** below and open it on your phone to install."
+            echo "This build is \`${{ steps.version.outputs.name }}\`."
             echo "You will need to allow installing from unknown sources the first time."
             echo
             if [ "${{ steps.keystore.outputs.signed }}" != "true" ]; then
@@ -129,6 +136,24 @@ jobs:
             fi
             echo "Built from \`${{ github.sha }}\`."
           } > release-notes.md
+
+      - name: Remove superseded assets from the rolling release
+        if: steps.version.outputs.tag == 'latest'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Earlier runs uploaded a per-commit filename, so the rolling release accumulated APKs
+          # and nobody could tell which was current. Keep only the stable name.
+          assets=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/$REPO/releases/tags/latest" \
+            | jq -r '.assets // [] | .[] | select(.name != "food-tracker-latest.apk") | .id')
+          for id in $assets; do
+            echo "removing stale asset $id"
+            curl -sS -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$REPO/releases/assets/$id" || true
+          done
 
       - name: Publish the release
         uses: softprops/action-gh-release@v2
