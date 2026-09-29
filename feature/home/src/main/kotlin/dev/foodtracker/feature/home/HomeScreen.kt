@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -15,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.NoMeals
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -22,12 +25,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,7 +43,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.foodtracker.core.ui.component.CalorieRing
 import dev.foodtracker.core.ui.component.MacroBar
+import kotlinx.coroutines.delay
 import java.io.File
+import dev.foodtracker.core.ui.component.rememberHaptics
 import dev.foodtracker.core.ui.component.MessageState
 
 object HomeTestTags {
@@ -45,6 +53,7 @@ object HomeTestTags {
     const val EMPTY_STATE = "home_empty_state"
     const val MEAL_LIST = "home_meal_list"
     const val ADD_MANUALLY = "home_add_manually"
+    const val QUICK_ADD = "home_quick_add"
 }
 
 @Composable
@@ -59,6 +68,8 @@ fun HomeRoute(
         state = state,
         onAddManually = onAddManually,
         onEditMeal = onEditMeal,
+        onQuickAdd = viewModel::quickAdd,
+        onDismissJustLogged = viewModel::dismissJustLogged,
         modifier = modifier,
     )
 }
@@ -68,6 +79,8 @@ internal fun HomeScreen(
     state: HomeUiState,
     onAddManually: () -> Unit,
     onEditMeal: (String) -> Unit,
+    onQuickAdd: (QuickAddFood) -> Unit,
+    onDismissJustLogged: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -129,6 +142,15 @@ internal fun HomeScreen(
                     MacroSummary("Fat", state.consumedNutrients.fatGrams, state.fatGoal)
                 }
             }
+        }
+
+        if (state.quickAdd.isNotEmpty()) {
+            QuickAddRow(
+                foods = state.quickAdd,
+                justLogged = state.justLogged,
+                onQuickAdd = onQuickAdd,
+                onDismissJustLogged = onDismissJustLogged,
+            )
         }
 
         if (state.meals.isEmpty()) {
@@ -201,6 +223,63 @@ private fun MealThumbnail(path: String?) {
             .size(48.dp)
             .clip(RoundedCornerShape(8.dp)),
     )
+}
+
+/**
+ * One tap to log a food you eat often. The whole point is that it takes no decisions: no portion
+ * dialog, no search, just the thing you had yesterday at the size you had it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun QuickAddRow(
+    foods: List<QuickAddFood>,
+    justLogged: String?,
+    onQuickAdd: (QuickAddFood) -> Unit,
+    onDismissJustLogged: () -> Unit,
+) {
+    val haptics = rememberHaptics()
+
+    // Confirmation clears itself; a tap that produced no visible change reads as a broken button.
+    LaunchedEffect(justLogged) {
+        if (justLogged != null) {
+            delay(2_500)
+            onDismissJustLogged()
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth().testTag(HomeTestTags.QUICK_ADD),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = justLogged ?: "Log again",
+            style = MaterialTheme.typography.titleSmall,
+            color = if (justLogged != null) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        )
+
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            foods.forEach { food ->
+                AssistChip(
+                    onClick = {
+                        haptics.confirm()
+                        onQuickAdd(food)
+                    },
+                    label = {
+                        Text(food.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    },
+                    leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    modifier = Modifier.semantics {
+                        contentDescription = "Log ${food.name} again"
+                    },
+                )
+            }
+        }
+    }
 }
 
 @Composable
