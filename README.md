@@ -203,8 +203,12 @@ trivial nudge (150 g to 152 g) is ignored rather than diluting the signal.
 
 ```bash
 ./gradlew testDebugUnitTest          # portion maths, merge logic, API mapping, state reduction
-./gradlew connectedAndroidTest       # bottom-sheet flow (needs a device or emulator)
+./gradlew connectedAndroidTest       # UI flows (needs a device or emulator)
 ```
+
+119 unit tests and 32 instrumented tests. The instrumented ones cover the results sheet, the food
+picker, Home and History; they are written but have never been run here, because this environment
+has no device or emulator.
 
 Unit tests cover the parts where bugs are invisible rather than loud: per-100g → portion scaling,
 unit round-tripping across every category, label similarity thresholds, every merge case (user edits
