@@ -17,6 +17,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.LocalDate
 import java.util.UUID
 import javax.inject.Inject
@@ -87,7 +88,14 @@ class DiaryRepository @Inject constructor(
         mealId
     }
 
-    suspend fun deleteMeal(mealId: String) = withContext(ioDispatcher) { diaryDao.deleteMeal(mealId) }
+    suspend fun deleteMeal(mealId: String) = withContext(ioDispatcher) {
+        // A diary photo is referenced by exactly one meal, so it goes with it. Deleting the file
+        // here rather than calling back into the recognition layer keeps the two independent.
+        val photoPath = diaryDao.mealById(mealId)?.meal?.photoPath
+        diaryDao.deleteMeal(mealId)
+        photoPath?.let { runCatching { File(it).delete() } }
+        Unit
+    }
 
     suspend fun mealById(mealId: String): LoggedMeal? =
         withContext(ioDispatcher) { diaryDao.mealById(mealId)?.toDomain() }
@@ -128,6 +136,7 @@ class DiaryRepository @Inject constructor(
 
 private fun MealWithItems.toDomain(): LoggedMeal = LoggedMeal(
     id = meal.id,
+    photoPath = meal.photoPath,
     mealType = MealType.entries.firstOrNull { it.name == meal.mealType } ?: MealType.SNACK,
     date = LocalDate.ofEpochDay(meal.epochDay),
     loggedAtMillis = meal.loggedAtMillis,

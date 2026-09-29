@@ -221,6 +221,12 @@ private fun TotalsHeader(state: ResultsUiState) {
             DegradeBanner(message = reason.bannerMessage(), isActionable = reason.isUserActionable)
         }
 
+        // Only rendered inside the empty-failure branch before, so a save that failed set this and
+        // showed nothing: the user tapped Log and the sheet simply sat there.
+        if (state.items.isNotEmpty() && state.errorMessage != null) {
+            DegradeBanner(message = state.errorMessage, isActionable = true)
+        }
+
         if (!state.isBusy && state.unresolvedCount > 0) {
             DegradeBanner(
                 message = "No nutrition data for ${state.unresolvedCount} item" +

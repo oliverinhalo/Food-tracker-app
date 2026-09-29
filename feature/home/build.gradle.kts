@@ -10,4 +10,5 @@ dependencies {
     implementation(project(":core:datastore"))
     implementation(project(":data:diary"))
     implementation(libs.compose.material.icons.extended)
+    implementation(libs.coil.compose)
 }

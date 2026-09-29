@@ -35,6 +35,7 @@ data class MealSummary(
     val mealType: MealType,
     val itemNames: List<String>,
     val calories: Int,
+    val photoPath: String? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -74,4 +75,5 @@ private fun LoggedMeal.toSummary() = MealSummary(
     mealType = mealType,
     itemNames = items.map { it.name },
     calories = totals.calories.roundToInt(),
+    photoPath = photoPath,
 )

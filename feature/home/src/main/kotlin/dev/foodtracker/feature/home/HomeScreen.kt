@@ -1,5 +1,6 @@
 package dev.foodtracker.feature.home
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -23,15 +25,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.foodtracker.core.ui.component.CalorieRing
 import dev.foodtracker.core.ui.component.MacroBar
+import java.io.File
 import dev.foodtracker.core.ui.component.MessageState
 
 object HomeTestTags {
@@ -157,9 +163,10 @@ private fun MealRow(meal: MealSummary, onClick: () -> Unit) {
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            MealThumbnail(meal.photoPath)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = meal.mealType.name.lowercase().replaceFirstChar { it.uppercase() },
@@ -176,6 +183,24 @@ private fun MealRow(meal: MealSummary, onClick: () -> Unit) {
             Text("${meal.calories} kcal", style = MaterialTheme.typography.titleSmall)
         }
     }
+}
+
+/**
+ * The meal's own photo, which turns the list into a visual diary. Decorative rather than described:
+ * the meal type and its foods are already announced by the row.
+ */
+@Composable
+private fun MealThumbnail(path: String?) {
+    if (path == null) return
+
+    AsyncImage(
+        model = File(path),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(8.dp)),
+    )
 }
 
 @Composable

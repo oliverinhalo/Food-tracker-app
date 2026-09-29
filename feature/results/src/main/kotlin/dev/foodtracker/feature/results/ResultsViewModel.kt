@@ -53,6 +53,9 @@ class ResultsViewModel @Inject constructor(
     private var analysisJob: Job? = null
     private var captureId: String? = null
 
+    /** Kept past analysis so the photo can be filed with the meal when it is confirmed. */
+    private var photoCaptureId: String? = null
+
     /** What the recogniser first proposed, so a later edit can be measured against it. */
     private val originalEstimates = mutableMapOf<String, Double>()
 
@@ -70,6 +73,7 @@ class ResultsViewModel @Inject constructor(
     fun startManualEntry() {
         analysisJob?.cancel()
         captureId = null
+        photoCaptureId = null
         originalEstimates.clear()
 
         val item = newManualItem()
@@ -89,6 +93,7 @@ class ResultsViewModel @Inject constructor(
     fun editLoggedMeal(mealId: String) {
         analysisJob?.cancel()
         captureId = null
+        photoCaptureId = null
         originalEstimates.clear()
 
         viewModelScope.launch {
@@ -115,6 +120,7 @@ class ResultsViewModel @Inject constructor(
     fun analyze(captureId: String) {
         if (this.captureId == captureId && analysisJob?.isActive == true) return
         this.captureId = captureId
+        photoCaptureId = captureId
 
         analysisJob?.cancel()
         analysisJob = viewModelScope.launch {
@@ -427,7 +433,7 @@ class ResultsViewModel @Inject constructor(
         val state = _uiState.value
         if (!state.canConfirm) return
 
-        _uiState.update { it.copy(isLogging = true, stage = AnalysisStage.SAVING) }
+        _uiState.update { it.copy(isLogging = true, stage = AnalysisStage.SAVING, errorMessage = null) }
 
         viewModelScope.launch {
             runCatching {
@@ -435,7 +441,14 @@ class ResultsViewModel @Inject constructor(
                 if (editingId != null) {
                     diaryRepository.updateMeal(editingId, state.mealType, state.items)
                 } else {
-                    diaryRepository.logMeal(mealType = state.mealType, items = state.items)
+                    // Moves the photo out of the cache, which Android can reclaim, into storage
+                    // that lasts as long as the meal does.
+                    val photoPath = photoCaptureId?.let { captureStore.persistForDiary(it) }
+                    diaryRepository.logMeal(
+                        mealType = state.mealType,
+                        items = state.items,
+                        photoPath = photoPath,
+                    )
                 }
                 recordPortionCorrections(state.items)
             }.onSuccess {

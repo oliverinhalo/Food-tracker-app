@@ -19,6 +19,7 @@ data class LoggedMeal(
     val date: LocalDate,
     val loggedAtMillis: Long,
     val items: List<LoggedFood>,
+    val photoPath: String? = null,
 ) {
     val totals: Nutrients
         get() = items.fold(Nutrients.ZERO) { acc, item -> acc + item.nutrients }

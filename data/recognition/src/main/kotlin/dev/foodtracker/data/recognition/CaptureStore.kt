@@ -56,6 +56,26 @@ class CaptureStore @Inject constructor(
         Unit
     }
 
+    /**
+     * Copies a capture somewhere permanent and returns its path, for a meal that is being logged.
+     *
+     * The working copy lives in the cache directory, which Android can reclaim whenever it likes.
+     * A diary photo has to outlive that, so logging a meal moves it to internal storage.
+     */
+    suspend fun persistForDiary(captureId: String): String? = withContext(ioDispatcher) {
+        val image = load(captureId) ?: return@withContext null
+        val directory = File(context.filesDir, DIARY_DIR).apply { mkdirs() }
+        val file = File(directory, "$captureId.jpg")
+        runCatching { file.writeBytes(image.bytes) }.getOrNull() ?: return@withContext null
+        file.absolutePath
+    }
+
+    /** Removes a diary photo when its meal is deleted, so storage does not grow without bound. */
+    suspend fun deleteDiaryPhoto(path: String) = withContext(ioDispatcher) {
+        runCatching { File(path).delete() }
+        Unit
+    }
+
     private fun fileFor(id: String) = File(directory, "$id.jpg")
 
     /** Keeps the cache bounded; the queue for re-analysis owns anything it still needs. */
@@ -71,6 +91,7 @@ class CaptureStore @Inject constructor(
 
     private companion object {
         const val CAPTURE_DIR = "captures"
+        const val DIARY_DIR = "meal-photos"
         const val MAX_CACHED_CAPTURES = 20
     }
 }

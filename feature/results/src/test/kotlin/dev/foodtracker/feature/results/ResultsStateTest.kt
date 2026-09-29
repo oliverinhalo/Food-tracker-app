@@ -174,4 +174,21 @@ class ResultsStateTest {
 
         assertThat(restored.map { it.id }).containsExactly("only", "gone").inOrder()
     }
+
+    @Test
+    fun `a save failure keeps the items on screen so the error can be shown beside them`() {
+        // The bug this covers: errorMessage was only rendered when the list was empty, so a failed
+        // save set it and displayed nothing at all.
+        val failed = ResultsUiState(
+            phase = AnalysisPhase.COMPLETE,
+            items = listOf(item()),
+            errorMessage = "Could not save this meal.",
+            isLogging = false,
+        )
+
+        assertThat(failed.items).isNotEmpty()
+        assertThat(failed.errorMessage).isNotNull()
+        // And the user must still be able to try again.
+        assertThat(failed.canConfirm).isTrue()
+    }
 }
