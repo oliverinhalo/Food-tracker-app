@@ -38,6 +38,22 @@ data class FoodAlternative(
 )
 
 /**
+ * What a food might be made of, when its appearance does not say.
+ *
+ * This is a different question from [FoodAlternative], and conflating them loses information. An
+ * alternative says "this might not be a sausage at all"; a variant says "it is definitely a
+ * sausage, but pork and vegan sausages differ by more than double in calories". A pie is the
+ * clearest case: steak, chicken and apple pie look nearly identical from the outside and are
+ * nothing alike nutritionally, and no amount of looking harder at the photo can settle it.
+ *
+ * [name] is a complete food name, not a filling, so it can be looked up directly.
+ */
+data class FoodVariant(
+    val name: String,
+    val confidence: Float,
+)
+
+/**
  * A single food the pipeline believes is in the photo. The same type carries provisional on-device
  * results and refined cloud results; [source] says which, and [nutrients] stays null until the
  * nutrition layer resolves it.
@@ -50,6 +66,9 @@ data class DetectedItem(
     val source: RecognitionSource,
     val cookingMethod: String? = null,
     val alternatives: List<FoodAlternative> = emptyList(),
+    val variants: List<FoodVariant> = emptyList(),
+    /** Prompt for the variant picker, e.g. "What kind of pie?". Null when the food is unambiguous. */
+    val variantQuestion: String? = null,
     val boundingBox: NormalizedBox? = null,
     val nutrientsPer100g: Nutrients? = null,
     val brand: String? = null,

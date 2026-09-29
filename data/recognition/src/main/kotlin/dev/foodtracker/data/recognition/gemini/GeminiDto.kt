@@ -85,6 +85,8 @@ internal data class GeminiFoodItem(
     val householdUnit: String? = null,
     val cookingMethod: String? = null,
     val alternatives: List<GeminiAlternative> = emptyList(),
+    val variantQuestion: String? = null,
+    val variants: List<GeminiAlternative> = emptyList(),
     val boundingBox: GeminiBox? = null,
 )
 

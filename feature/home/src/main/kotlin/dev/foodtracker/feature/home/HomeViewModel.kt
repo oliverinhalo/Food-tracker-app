@@ -153,6 +153,10 @@ class HomeViewModel @Inject constructor(
         quickAddResult.value = QuickAddResult.Logged("Logged ${record.name}")
     }
 
+    fun deleteMeal(mealId: String) {
+        viewModelScope.launch { diaryRepository.deleteMeal(mealId) }
+    }
+
     fun dismissQuickAddResult() {
         quickAddResult.value = null
     }

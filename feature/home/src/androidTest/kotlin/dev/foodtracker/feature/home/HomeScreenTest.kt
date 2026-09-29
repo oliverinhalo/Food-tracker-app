@@ -21,6 +21,7 @@ class HomeScreenTest {
         onAddManually: () -> Unit = {},
         onEditMeal: (String) -> Unit = {},
         onQuickAdd: (QuickAddFood) -> Unit = {},
+        onDeleteMeal: (String) -> Unit = {},
     ) {
         composeRule.setContent {
             FoodTrackerTheme(dynamicColor = false) {
@@ -28,6 +29,7 @@ class HomeScreenTest {
                     state = state,
                     onAddManually = onAddManually,
                     onEditMeal = onEditMeal,
+                    onDeleteMeal = onDeleteMeal,
                     onQuickAdd = onQuickAdd,
                     onDismissQuickAddResult = {},
                 )
@@ -128,5 +130,15 @@ class HomeScreenTest {
         )
 
         composeRule.onNodeWithText("Couldn't find Porridge.").assertIsDisplayed()
+    }
+
+    @Test
+    fun aMealCanBeDeletedWithoutLeavingHome() {
+        var deleted: String? = null
+        setHome(HomeUiState(meals = listOf(meal(id = "meal-4"))), onDeleteMeal = { deleted = it })
+
+        composeRule.onNodeWithTag(HomeTestTags.deleteMeal("meal-4")).performClick()
+
+        assert(deleted == "meal-4") { "expected the meal id, got $deleted" }
     }
 }

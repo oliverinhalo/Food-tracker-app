@@ -3,6 +3,7 @@ package dev.foodtracker.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.foodtracker.core.datastore.SecureKeyStore
 import dev.foodtracker.core.datastore.SettingsRepository
 import dev.foodtracker.core.datastore.UnitSystem
 import dev.foodtracker.core.datastore.UserSettings
@@ -15,7 +16,19 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
+    private val secureKeyStore: SecureKeyStore,
 ) : ViewModel() {
+
+    /**
+     * The saved key, so it can be copied out before a reinstall.
+     *
+     * Android wipes app data when an app is uninstalled, and a key stored behind the keystore
+     * cannot be restored from a backup even if one existed. Being able to read your own key back
+     * is the difference between a reinstall costing a tap and costing a trip to Google AI Studio.
+     */
+    fun revealGeminiKey(): String? = secureKeyStore.geminiApiKey()
+
+    fun revealUsdaKey(): String? = secureKeyStore.usdaApiKey()
 
     val uiState: StateFlow<UserSettings> = settingsRepository.settings
         .stateIn(

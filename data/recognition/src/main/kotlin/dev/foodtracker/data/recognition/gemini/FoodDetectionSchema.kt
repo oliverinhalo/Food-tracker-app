@@ -23,6 +23,14 @@ Rules:
   "1 medium apple", "1 tbsp".
 - confidence is your own calibrated probability that the name is correct, from 0 to 1.
 - alternatives are the next 3 most likely identities for the SAME physical item, most likely first.
+- Some foods hide what they are made of. A pie, a sausage, a curry, a sandwich or a wrap looks
+  much the same whatever is inside, and the difference is often hundreds of calories. When you
+  cannot tell from the photo, set variantQuestion to a short question ("What kind of pie?") and
+  list 3-6 variants covering the realistic possibilities, including a vegetarian or vegan one
+  where that is plausible. Each variant must be a COMPLETE food name that could be looked up in a
+  nutrition database ("steak pie", not "steak"). Order them most likely first.
+- If the food's name already says what it is made of, or its composition is obvious, leave
+  variantQuestion empty and variants empty. Do not ask about a plain apple.
 - boundingBox coordinates are fractions of image width/height from the top-left corner.
 """
 
@@ -59,6 +67,22 @@ Identify every food item in this photo and estimate each portion.
                 "alternatives" to SchemaNode(
                     type = "ARRAY",
                     description = "Three next-most-likely identities for this same item.",
+                    items = SchemaNode(
+                        type = "OBJECT",
+                        properties = linkedMapOf(
+                            "name" to SchemaNode(type = "STRING"),
+                            "confidence" to SchemaNode(type = "NUMBER"),
+                        ),
+                        required = listOf("name", "confidence"),
+                    ),
+                ),
+                "variantQuestion" to SchemaNode(
+                    type = "STRING",
+                    description = "Short question when the filling or base cannot be seen, e.g. 'What kind of pie?'. Empty if obvious.",
+                ),
+                "variants" to SchemaNode(
+                    type = "ARRAY",
+                    description = "Complete food names this item could be, e.g. 'steak pie', 'chicken pie', 'apple pie'.",
                     items = SchemaNode(
                         type = "OBJECT",
                         properties = linkedMapOf(

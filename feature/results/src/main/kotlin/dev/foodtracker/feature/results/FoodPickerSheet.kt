@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -117,6 +118,14 @@ internal fun FoodPickerSheet(
                     .testTag(ResultsTestTags.PICKER_RESULTS),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
+                if (state.showVariants) {
+                    item { SectionLabel(state.variantQuestion ?: "What kind?") }
+                    items(state.variants, key = { "variant-" + it.id }) { option ->
+                        FoodOptionRow(option) { onAction(ResultsAction.SelectFood(option)) }
+                    }
+                    item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
+                }
+
                 if (state.showSuggestions) {
                     item { SectionLabel("The AI's other guesses") }
                     items(state.suggestions, key = { it.id }) { option ->
@@ -133,7 +142,7 @@ internal fun FoodPickerSheet(
                     item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
                 }
 
-                if (state.showSuggestions || state.showRecents) {
+                if (state.showVariants || state.showSuggestions || state.showRecents) {
                     item { SectionLabel("From the food databases") }
                 }
 
@@ -176,6 +185,7 @@ private fun FoodOptionRow(option: FoodOption, onClick: () -> Unit) {
         Icon(
             imageVector = when (option.origin) {
                 FoodOption.Origin.AI_SUGGESTION -> Icons.Default.AutoAwesome
+                FoodOption.Origin.VARIANT -> Icons.Default.Tune
                 FoodOption.Origin.BARCODE -> Icons.Default.QrCodeScanner
                 FoodOption.Origin.DATABASE -> Icons.Default.Restaurant
             },
@@ -189,7 +199,7 @@ private fun FoodOptionRow(option: FoodOption, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (option.origin != FoodOption.Origin.AI_SUGGESTION) {
+            if (option.origin != FoodOption.Origin.AI_SUGGESTION && option.origin != FoodOption.Origin.VARIANT) {
                 Text(
                     text = option.subtitle,
                     style = MaterialTheme.typography.bodySmall,

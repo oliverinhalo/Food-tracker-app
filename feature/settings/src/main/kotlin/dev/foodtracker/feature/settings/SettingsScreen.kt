@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -32,7 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -48,6 +51,8 @@ object SettingsTestTags {
     const val API_KEY_SAVE = "settings_api_key_save"
     const val LOCAL_ONLY_SWITCH = "settings_local_only"
     const val CALORIE_GOAL_FIELD = "settings_calorie_goal"
+    const val REVEAL_KEY = "settings_reveal_key"
+    const val REVEALED_KEY = "settings_revealed_key"
     const val PROTEIN_GOAL_FIELD = "settings_protein_goal"
     const val CARBS_GOAL_FIELD = "settings_carbs_goal"
     const val FAT_GOAL_FIELD = "settings_fat_goal"
@@ -66,6 +71,8 @@ fun SettingsRoute(
         onClearApiKey = viewModel::clearApiKey,
         onSaveUsdaKey = viewModel::setUsdaKey,
         onClearUsdaKey = viewModel::clearUsdaKey,
+        onRevealGeminiKey = viewModel::revealGeminiKey,
+        onRevealUsdaKey = viewModel::revealUsdaKey,
         onCalorieGoalChange = viewModel::setCalorieGoal,
         onMacroGoalsChange = viewModel::setMacroGoals,
         onUnitSystemChange = viewModel::setUnitSystem,
@@ -82,6 +89,8 @@ internal fun SettingsScreen(
     onClearApiKey: () -> Unit,
     onSaveUsdaKey: (String) -> Unit,
     onClearUsdaKey: () -> Unit,
+    onRevealGeminiKey: () -> String?,
+    onRevealUsdaKey: () -> String?,
     onCalorieGoalChange: (Int) -> Unit,
     onMacroGoalsChange: (Int, Int, Int) -> Unit,
     onUnitSystemChange: (UnitSystem) -> Unit,
@@ -109,6 +118,7 @@ internal fun SettingsScreen(
             testTag = SettingsTestTags.API_KEY_FIELD,
             onSave = onSaveApiKey,
             onClear = onClearApiKey,
+            onReveal = onRevealGeminiKey,
         )
 
         KeySection(
@@ -123,6 +133,7 @@ internal fun SettingsScreen(
             testTag = SettingsTestTags.USDA_KEY_FIELD,
             onSave = onSaveUsdaKey,
             onClear = onClearUsdaKey,
+            onReveal = onRevealUsdaKey,
         )
 
         GoalSection(
@@ -178,9 +189,12 @@ private fun KeySection(
     testTag: String,
     onSave: (String) -> Unit,
     onClear: () -> Unit,
+    onReveal: () -> String?,
 ) {
     var draft by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
+    var revealed by remember { mutableStateOf<String?>(null) }
+    val clipboard = LocalClipboardManager.current
 
     Card {
         Column(
@@ -226,7 +240,31 @@ private fun KeySection(
                     Text("Save")
                 }
                 if (hasKey) {
-                    TextButton(onClick = onClear) { Text("Remove key") }
+                    TextButton(
+                        onClick = { revealed = onReveal() },
+                        modifier = Modifier.testTag(SettingsTestTags.REVEAL_KEY),
+                    ) {
+                        Text("Show saved key")
+                    }
+                    TextButton(onClick = onClear) { Text("Remove") }
+                }
+            }
+
+            revealed?.let { key ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SelectionContainer {
+                        Text(
+                            text = key,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.testTag(SettingsTestTags.REVEALED_KEY),
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { clipboard.setText(AnnotatedString(key)) }) {
+                            Text("Copy")
+                        }
+                        TextButton(onClick = { revealed = null }) { Text("Hide") }
+                    }
                 }
             }
         }

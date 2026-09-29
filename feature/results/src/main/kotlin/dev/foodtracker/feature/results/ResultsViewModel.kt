@@ -18,6 +18,7 @@ import dev.foodtracker.data.recognition.CaptureStore
 import dev.foodtracker.data.nutrition.FoodRecord
 import dev.foodtracker.data.nutrition.NutritionRepository
 import dev.foodtracker.data.nutrition.ResolveNutrition
+import dev.foodtracker.domain.nutrition.AmbiguousFoods
 import dev.foodtracker.domain.nutrition.FoodCategory
 import dev.foodtracker.domain.nutrition.UnitConverter
 import dev.foodtracker.domain.nutrition.foodKeyOf
@@ -267,6 +268,19 @@ class ResultsViewModel @Inject constructor(
                 picker = FoodPickerState(
                     itemId = itemId,
                     itemName = item.name,
+                    // A food added by hand, or recognised before variants existed, still deserves
+                    // the question, so fall back to the curated table.
+                    variantQuestion = item.variantQuestion ?: AmbiguousFoods.questionFor(item.name),
+                    variants = (item.variants.ifEmpty { AmbiguousFoods.variantsFor(item.name) })
+                        .map { variant ->
+                            FoodOption(
+                                id = "variant:${variant.name}",
+                                name = variant.name,
+                                brand = null,
+                                caloriesPer100g = 0,
+                                origin = FoodOption.Origin.VARIANT,
+                            )
+                        },
                     suggestions = item.alternatives.map { alternative ->
                         FoodOption(
                             id = "ai:${alternative.name}",

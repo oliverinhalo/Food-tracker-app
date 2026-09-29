@@ -127,6 +127,16 @@ render the moment anything is known:
 Both passes start together rather than in sequence: waiting for the local pass before dialling out
 would add its latency to the cloud result too.
 
+**Some foods cannot be identified by looking**, however good the recogniser. A pie is a pastry
+case: steak, chicken and apple pie are near-identical from outside and differ by hundreds of
+calories. A sausage may be pork, chicken or vegan. Guessing silently is worse here than anywhere
+else, because there is no reason for the user to doubt the answer.
+
+So the recogniser is asked a second, separate question — not "what else might this be?" but "what
+might this be *made of*?" — and the results sheet puts it at the top of the picker as
+"What kind of pie?". `AmbiguousFoods` covers the same ground offline, for foods added by hand and
+for when the cloud pass cannot be reached.
+
 **Picking the right database row** is where the calories are won or lost. Search ranks by text
 relevance, and taking the first hit is wrong by a lot: USDA answers "steamed broccoli" with
 *"Corn, white, steamed"* at 386 kcal/100g (the real broccoli row, 35 kcal, is sixth) and "white

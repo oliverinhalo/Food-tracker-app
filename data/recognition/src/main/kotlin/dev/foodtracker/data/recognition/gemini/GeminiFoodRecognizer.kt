@@ -6,10 +6,12 @@ import dev.foodtracker.core.datastore.SecureKeyStore
 import dev.foodtracker.core.model.DegradeReason
 import dev.foodtracker.core.model.DetectedItem
 import dev.foodtracker.core.model.FoodAlternative
+import dev.foodtracker.core.model.FoodVariant
 import dev.foodtracker.core.model.NormalizedBox
 import dev.foodtracker.core.model.Portion
 import dev.foodtracker.core.model.RecognitionSource
 import dev.foodtracker.core.network.NetworkMonitor
+import dev.foodtracker.domain.nutrition.AmbiguousFoods
 import dev.foodtracker.domain.recognition.CapturedImage
 import dev.foodtracker.domain.recognition.CloudFoodRecognizer
 import dev.foodtracker.domain.recognition.RecognitionOutcome
@@ -163,9 +165,20 @@ internal fun GeminiFoodItem.toDetectedItem(): DetectedItem? {
     if (name.isBlank()) return null
     val grams = estimatedGrams.takeIf { it.isFinite() && it > 0 } ?: return null
 
+    val trimmedName = name.trim()
+
+    // The model answers this well when asked, but it is not always reachable and older responses
+    // predate the question, so the curated table stands in.
+    val modelVariants = variants
+        .filter { it.name.isNotBlank() }
+        .map { FoodVariant(it.name.trim(), it.confidence.coerceIn(0.0, 1.0).toFloat()) }
+    val resolvedVariants = modelVariants.ifEmpty { AmbiguousFoods.variantsFor(trimmedName) }
+    val resolvedQuestion = variantQuestion?.trim()?.takeIf { it.isNotBlank() }
+        ?: AmbiguousFoods.questionFor(trimmedName)
+
     return DetectedItem(
         id = UUID.randomUUID().toString(),
-        name = name.trim(),
+        name = trimmedName,
         confidence = confidence.coerceIn(0.0, 1.0).toFloat(),
         portion = Portion.ofGrams(grams, householdDescription = householdUnit?.trim()?.takeIf { it.isNotBlank() }),
         source = RecognitionSource.CLOUD,
@@ -173,6 +186,10 @@ internal fun GeminiFoodItem.toDetectedItem(): DetectedItem? {
         alternatives = alternatives
             .filter { it.name.isNotBlank() }
             .map { FoodAlternative(it.name.trim(), it.confidence.coerceIn(0.0, 1.0).toFloat()) },
+        variants = resolvedVariants,
+        // Only ask when there is something to choose between; a question with no answers is worse
+        // than no question.
+        variantQuestion = resolvedQuestion.takeIf { resolvedVariants.isNotEmpty() },
         boundingBox = boundingBox?.toNormalizedBox(),
     )
 }

@@ -134,7 +134,13 @@ internal fun FoodItemCard(
                                 }
                             },
                     ) {
-                        Text(if (item.nutrientsPer100g == null) "Find this food" else "Change item")
+                        Text(
+                            when {
+                                item.nutrientsPer100g == null -> "Find this food"
+                                item.variantQuestion != null -> item.variantQuestion!!
+                                else -> "Change item"
+                            },
+                        )
                     }
                 }
             }

@@ -16,11 +16,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.NoMeals
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -54,6 +56,8 @@ object HomeTestTags {
     const val MEAL_LIST = "home_meal_list"
     const val ADD_MANUALLY = "home_add_manually"
     const val QUICK_ADD = "home_quick_add"
+
+    fun deleteMeal(id: String) = "home_delete_meal_$id"
 }
 
 @Composable
@@ -68,6 +72,7 @@ fun HomeRoute(
         state = state,
         onAddManually = onAddManually,
         onEditMeal = onEditMeal,
+        onDeleteMeal = viewModel::deleteMeal,
         onQuickAdd = viewModel::quickAdd,
         onDismissQuickAddResult = viewModel::dismissQuickAddResult,
         modifier = modifier,
@@ -79,6 +84,7 @@ internal fun HomeScreen(
     state: HomeUiState,
     onAddManually: () -> Unit,
     onEditMeal: (String) -> Unit,
+    onDeleteMeal: (String) -> Unit,
     onQuickAdd: (QuickAddFood) -> Unit,
     onDismissQuickAddResult: () -> Unit,
     modifier: Modifier = Modifier,
@@ -167,7 +173,11 @@ internal fun HomeScreen(
             ) {
                 Text("Meals", style = MaterialTheme.typography.titleSmall, modifier = Modifier.fillMaxWidth())
                 state.meals.forEach { meal ->
-                    MealRow(meal = meal, onClick = { onEditMeal(meal.id) })
+                    MealRow(
+                        meal = meal,
+                        onClick = { onEditMeal(meal.id) },
+                        onDelete = { onDeleteMeal(meal.id) },
+                    )
                 }
             }
         }
@@ -176,7 +186,7 @@ internal fun HomeScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MealRow(meal: MealSummary, onClick: () -> Unit) {
+private fun MealRow(meal: MealSummary, onClick: () -> Unit, onDelete: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier
@@ -203,6 +213,14 @@ private fun MealRow(meal: MealSummary, onClick: () -> Unit) {
                 )
             }
             Text("${meal.calories} kcal", style = MaterialTheme.typography.titleSmall)
+            // Deleting was only possible from History, which is an odd place to look for a meal
+            // you logged a minute ago.
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.testTag(HomeTestTags.deleteMeal(meal.id)),
+            ) {
+                Icon(Icons.Default.DeleteOutline, contentDescription = "Delete this meal")
+            }
         }
     }
 }
