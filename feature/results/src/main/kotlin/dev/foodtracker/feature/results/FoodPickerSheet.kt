@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -78,7 +80,8 @@ internal fun FoodPickerSheet(
                     modifier = Modifier.testTag(ResultsTestTags.PICKER_SCAN),
                 ) {
                     Icon(Icons.Default.QrCodeScanner, contentDescription = null)
-                    Text("  Scan")
+                    Spacer(Modifier.width(8.dp))
+                    Text("Scan")
                 }
             }
 

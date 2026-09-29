@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
@@ -64,7 +64,7 @@ internal fun QuantityEditor(
                 },
                 enabled = amount > 0.0,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(MIN_TOUCH_TARGET)
                     .testTag(ResultsTestTags.itemDecrement(itemId))
                     .semantics { contentDescription = "Decrease amount" },
             ) {
@@ -74,7 +74,9 @@ internal fun QuantityEditor(
             Text(
                 text = ResultsFormatting.amount(amount, unit),
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.width(56.dp),
+                // A minimum rather than a fixed width: at large system font scales a fixed one
+                // clips four-digit amounts.
+                modifier = Modifier.widthIn(min = 56.dp),
             )
 
             FilledTonalIconButton(
@@ -83,7 +85,7 @@ internal fun QuantityEditor(
                     onAmountChange(amount + step)
                 },
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(MIN_TOUCH_TARGET)
                     .testTag(ResultsTestTags.itemIncrement(itemId))
                     .semantics { contentDescription = "Increase amount" },
             ) {
@@ -144,3 +146,6 @@ private fun UnitPicker(
         }
     }
 }
+
+/** Android's minimum accessible touch target. */
+private val MIN_TOUCH_TARGET = 48.dp

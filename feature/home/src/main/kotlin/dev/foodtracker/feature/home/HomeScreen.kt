@@ -3,6 +3,8 @@ package dev.foodtracker.feature.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -82,7 +84,8 @@ internal fun HomeScreen(
                 modifier = Modifier.testTag(HomeTestTags.ADD_MANUALLY),
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
-                Text("  Add food")
+                Spacer(Modifier.width(8.dp))
+                Text("Add food")
             }
         }
 

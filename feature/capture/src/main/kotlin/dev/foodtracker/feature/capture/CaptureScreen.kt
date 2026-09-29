@@ -12,6 +12,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -245,7 +247,8 @@ private fun BoxScope.PermissionState(
             modifier = Modifier.testTag(CaptureTestTags.GALLERY),
         ) {
             Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-            Text("  Choose from gallery")
+            Spacer(Modifier.width(8.dp))
+            Text("Choose from gallery")
         }
     }
 }

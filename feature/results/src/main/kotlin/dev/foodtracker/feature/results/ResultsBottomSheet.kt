@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -352,8 +353,8 @@ private fun ItemList(state: ResultsUiState, onAction: (ResultsAction) -> Unit) {
                     .testTag(ResultsTestTags.ADD_ITEM),
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.height(0.dp))
-                Text("  Add missed item")
+                Spacer(Modifier.width(8.dp))
+                Text("Add missed item")
             }
         }
     }
