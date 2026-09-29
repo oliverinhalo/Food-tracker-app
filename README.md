@@ -78,6 +78,12 @@ and they take precedence. Locally, a gitignored `keystore.properties` does the s
 Note that switching keys is itself a key change, so the first build after switching needs one final
 uninstall.
 
+One subtlety worth knowing, because it silently defeated this once: GitHub Actions exports an
+**unset secret as an empty string**, not as a missing variable. Code that checks for null takes the
+empty path, skips the committed key, and falls back to debug signing without saying anything. Every
+secret here is read as blank-means-absent, and the release job is verified by building with the
+variables set to `""`.
+
 ## Architecture
 
 Clean-architecture split across Gradle modules, MVVM in the UI layer, Hilt for DI, Coroutines and
@@ -233,4 +239,4 @@ USDA_API_KEY=...   python3 tools/check_nutrition.py   # USDA + Open Food Facts
 | 2 | USDA + Open Food Facts, Room cache, portion maths, diary, Home | ✅ |
 | 3 | Offline re-analysis queue; local pass built then deliberately dropped on size | ✅ |
 | 4 | Barcode scanning, food search, recents, manual entry, History | ✅ |
-| 5 | Baseline profile, a11y pass, shared-element transitions | ◐ |
+| 5 | Baseline profile, Compose stability, a11y pass | ✅ |
