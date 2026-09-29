@@ -228,7 +228,16 @@ field being renamed upstream.
 ```bash
 GEMINI_API_KEY=... python3 tools/check_gemini.py      # recognition request + schema
 USDA_API_KEY=...   python3 tools/check_nutrition.py   # USDA + Open Food Facts
+
+# The whole chain: photo -> identified foods -> matched rows -> a calorie total
+GEMINI_API_KEY=... USDA_API_KEY=... python3 tools/check_pipeline.py
 ```
+
+The last one matters most. The failures that made this app wrong were not in any single piece —
+recognition was fine, the database call was fine — but in how they joined up, and they only became
+visible once a real photo produced a real number. It fails if the plate does not come out at a
+plausible calorie total, which is what "steamed broccoli resolving to steamed corn" looked like
+from the outside.
 
 ## Roadmap
 
