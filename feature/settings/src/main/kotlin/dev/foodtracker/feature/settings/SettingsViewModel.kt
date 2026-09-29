@@ -40,6 +40,10 @@ class SettingsViewModel @Inject constructor(
         settingsRepository.setDailyCalorieGoal(goal)
     }
 
+    fun setMacroGoals(proteinGrams: Int, carbsGrams: Int, fatGrams: Int) = viewModelScope.launch {
+        settingsRepository.setMacroGoals(proteinGrams, carbsGrams, fatGrams)
+    }
+
     fun setUnitSystem(system: UnitSystem) = viewModelScope.launch {
         settingsRepository.setUnitSystem(system)
     }

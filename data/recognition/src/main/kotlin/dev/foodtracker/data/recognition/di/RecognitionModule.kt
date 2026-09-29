@@ -7,7 +7,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.foodtracker.data.recognition.gemini.GeminiFoodRecognizer
 import dev.foodtracker.data.recognition.OfflineReanalysisQueue
-import dev.foodtracker.data.recognition.local.OnDeviceFoodRecognizer
+import dev.foodtracker.data.recognition.local.NoopLocalRecognizer
 import dev.foodtracker.domain.recognition.CloudFoodRecognizer
 import dev.foodtracker.domain.recognition.LocalFoodRecognizer
 import dev.foodtracker.domain.recognition.RecognitionMerger
@@ -25,7 +25,7 @@ abstract class RecognitionBindsModule {
 
     @Binds
     @Singleton
-    abstract fun bindsLocalRecognizer(impl: OnDeviceFoodRecognizer): LocalFoodRecognizer
+    abstract fun bindsLocalRecognizer(impl: NoopLocalRecognizer): LocalFoodRecognizer
 
     @Binds
     @Singleton

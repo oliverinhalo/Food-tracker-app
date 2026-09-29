@@ -9,7 +9,9 @@ import dev.foodtracker.core.model.MealType
 import dev.foodtracker.core.model.Nutrients
 import dev.foodtracker.data.diary.DiaryRepository
 import dev.foodtracker.data.diary.LoggedMeal
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -35,6 +37,7 @@ data class MealSummary(
     val calories: Int,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
@@ -42,19 +45,23 @@ class HomeViewModel @Inject constructor(
     timeProvider: TimeProvider,
 ) : ViewModel() {
 
-    val uiState: StateFlow<HomeUiState> = combine(
-        settingsRepository.settings,
-        diaryRepository.totalsFor(timeProvider.today()),
-        diaryRepository.mealsFor(timeProvider.today()),
-    ) { settings, totals, meals ->
-        HomeUiState(
-            calorieGoal = settings.dailyCalorieGoal,
-            proteinGoal = settings.proteinGoalGrams,
-            carbsGoal = settings.carbsGoalGrams,
-            fatGoal = settings.fatGoalGrams,
-            consumedNutrients = totals,
-            meals = meals.map { it.toSummary() },
-        )
+    // Keyed on the date flow rather than a date read once at construction: leaving the app open
+    // past midnight otherwise keeps yesterday's totals on screen under today's heading.
+    val uiState: StateFlow<HomeUiState> = timeProvider.todayFlow().flatMapLatest { today ->
+        combine(
+            settingsRepository.settings,
+            diaryRepository.totalsFor(today),
+            diaryRepository.mealsFor(today),
+        ) { settings, totals, meals ->
+            HomeUiState(
+                calorieGoal = settings.dailyCalorieGoal,
+                proteinGoal = settings.proteinGoalGrams,
+                carbsGoal = settings.carbsGoalGrams,
+                fatGoal = settings.fatGoalGrams,
+                consumedNutrients = totals,
+                meals = meals.map { it.toSummary() },
+            )
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),

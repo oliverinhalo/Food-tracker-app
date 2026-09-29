@@ -58,6 +58,14 @@ data class HistoryUiState(
         get() = maxOf(points.maxOfOrNull { it.calories } ?: 0, goal)
 }
 
+/** The inputs that define one view of history; a named type since `combine` maxes out at Triple. */
+private data class Window(
+    val range: HistoryRange,
+    val date: LocalDate,
+    val goal: Int,
+    val today: LocalDate,
+)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
@@ -73,9 +81,9 @@ class HistoryViewModel @Inject constructor(
         range,
         selectedDate,
         settingsRepository.settings,
-    ) { range, date, settings -> Triple(range, date, settings.dailyCalorieGoal) }
-        .flatMapLatest { (range, date, goal) ->
-            val today = timeProvider.today()
+        timeProvider.todayFlow(),
+    ) { range, date, settings, today -> Window(range, date, settings.dailyCalorieGoal, today) }
+        .flatMapLatest { (range, date, goal, today) ->
             val from = today.minusDays(range.days - 1)
 
             combine(

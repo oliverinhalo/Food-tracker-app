@@ -48,6 +48,9 @@ object SettingsTestTags {
     const val API_KEY_SAVE = "settings_api_key_save"
     const val LOCAL_ONLY_SWITCH = "settings_local_only"
     const val CALORIE_GOAL_FIELD = "settings_calorie_goal"
+    const val PROTEIN_GOAL_FIELD = "settings_protein_goal"
+    const val CARBS_GOAL_FIELD = "settings_carbs_goal"
+    const val FAT_GOAL_FIELD = "settings_fat_goal"
 }
 
 @Composable
@@ -64,6 +67,7 @@ fun SettingsRoute(
         onSaveUsdaKey = viewModel::setUsdaKey,
         onClearUsdaKey = viewModel::clearUsdaKey,
         onCalorieGoalChange = viewModel::setCalorieGoal,
+        onMacroGoalsChange = viewModel::setMacroGoals,
         onUnitSystemChange = viewModel::setUnitSystem,
         onLocalOnlyChange = viewModel::setLocalOnlyMode,
         onDynamicColorChange = viewModel::setDynamicColor,
@@ -79,6 +83,7 @@ internal fun SettingsScreen(
     onSaveUsdaKey: (String) -> Unit,
     onClearUsdaKey: () -> Unit,
     onCalorieGoalChange: (Int) -> Unit,
+    onMacroGoalsChange: (Int, Int, Int) -> Unit,
     onUnitSystemChange: (UnitSystem) -> Unit,
     onLocalOnlyChange: (Boolean) -> Unit,
     onDynamicColorChange: (Boolean) -> Unit,
@@ -120,7 +125,11 @@ internal fun SettingsScreen(
             onClear = onClearUsdaKey,
         )
 
-        GoalSection(goal = settings.dailyCalorieGoal, onGoalChange = onCalorieGoalChange)
+        GoalSection(
+            settings = settings,
+            onGoalChange = onCalorieGoalChange,
+            onMacroGoalsChange = onMacroGoalsChange,
+        )
 
         Card {
             Column(
@@ -225,30 +234,103 @@ private fun KeySection(
 }
 
 @Composable
-private fun GoalSection(goal: Int, onGoalChange: (Int) -> Unit) {
-    var draft by remember(goal) { mutableStateOf(goal.toString()) }
-
+private fun GoalSection(
+    settings: UserSettings,
+    onGoalChange: (Int) -> Unit,
+    onMacroGoalsChange: (Int, Int, Int) -> Unit,
+) {
     Card {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Daily calorie goal", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = draft,
-                onValueChange = { input ->
-                    draft = input.filter(Char::isDigit).take(5)
-                    draft.toIntOrNull()?.let(onGoalChange)
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                suffix = { Text("kcal") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(SettingsTestTags.CALORIE_GOAL_FIELD),
+            Text("Daily goals", style = MaterialTheme.typography.titleMedium)
+
+            NumberField(
+                label = "Calories",
+                value = settings.dailyCalorieGoal,
+                suffix = "kcal",
+                testTag = SettingsTestTags.CALORIE_GOAL_FIELD,
+                onValueChange = onGoalChange,
             )
+
+            Text(
+                text = "Macro targets",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NumberField(
+                    label = "Protein",
+                    value = settings.proteinGoalGrams,
+                    suffix = "g",
+                    testTag = SettingsTestTags.PROTEIN_GOAL_FIELD,
+                    modifier = Modifier.weight(1f),
+                    onValueChange = { onMacroGoalsChange(it, settings.carbsGoalGrams, settings.fatGoalGrams) },
+                )
+                NumberField(
+                    label = "Carbs",
+                    value = settings.carbsGoalGrams,
+                    suffix = "g",
+                    testTag = SettingsTestTags.CARBS_GOAL_FIELD,
+                    modifier = Modifier.weight(1f),
+                    onValueChange = { onMacroGoalsChange(settings.proteinGoalGrams, it, settings.fatGoalGrams) },
+                )
+                NumberField(
+                    label = "Fat",
+                    value = settings.fatGoalGrams,
+                    suffix = "g",
+                    testTag = SettingsTestTags.FAT_GOAL_FIELD,
+                    modifier = Modifier.weight(1f),
+                    onValueChange = { onMacroGoalsChange(settings.proteinGoalGrams, settings.carbsGoalGrams, it) },
+                )
+            }
+
+            // Macros and the calorie goal are set independently, so they can disagree. Saying so is
+            // more useful than silently rewriting whichever the user touched last.
+            val macroCalories = settings.proteinGoalGrams * 4 + settings.carbsGoalGrams * 4 + settings.fatGoalGrams * 9
+            val drift = macroCalories - settings.dailyCalorieGoal
+            if (kotlin.math.abs(drift) > settings.dailyCalorieGoal * 0.1) {
+                Text(
+                    text = "Your macro targets come to $macroCalories kcal, " +
+                        (if (drift > 0) "$drift above" else "${-drift} below") +
+                        " your calorie goal.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun NumberField(
+    label: String,
+    value: Int,
+    suffix: String,
+    testTag: String,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Keyed on `value` so an external change is picked up, but held locally so the field does not
+    // fight the user mid-edit when they clear it to retype.
+    var draft by remember(value) { mutableStateOf(value.toString()) }
+
+    OutlinedTextField(
+        value = draft,
+        onValueChange = { input ->
+            draft = input.filter(Char::isDigit).take(5)
+            draft.toIntOrNull()?.let(onValueChange)
+        },
+        label = { Text(label) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        suffix = { Text(suffix) },
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(testTag),
+    )
 }
 
 @Composable

@@ -4,9 +4,10 @@ A native Android calorie tracker: photograph a meal, and the app identifies each
 estimates portions, and shows calories and macros — with an on-device first pass so results appear
 instantly, and a cloud pass that refines them.
 
-> **Status:** phases 0–2 complete (project skeleton, camera capture, Gemini detection, results
-> bottom sheet, nutrition lookup, portion maths and the diary). The on-device model and
-> brand/barcode support land in later phases — see [Roadmap](#roadmap).
+> **Status:** the full loop works — scan or pick a photo, correct anything the AI got wrong, log
+> it, and see today and your history. Barcode scanning, manual entry, recents and offline
+> re-analysis are in. The on-device model is deliberately not shipped; see
+> [The on-device pass](#the-on-device-pass).
 
 ## Getting the app
 
@@ -90,7 +91,9 @@ core/common             dispatchers, time provider
 core/ui                 theme (dynamic colour + dark mode) and shared components
 core/network            OkHttp/Retrofit/JSON setup, retry + backoff, connectivity
 core/datastore          settings DataStore and the encrypted key store
-core/database           Room: cached foods, diary, portion corrections
+core/camera             CameraX plumbing and the barcode scanner
+core/text               food-label similarity, shared by matching and merging
+core/database           Room: cached foods, diary, portion corrections, offline queue
 domain/recognition      recogniser interfaces, merge logic, pipeline orchestration
 domain/nutrition        portion maths, density tables, portion learning
 data/recognition        Gemini client, image compression, capture store
@@ -98,8 +101,9 @@ data/nutrition          USDA + Open Food Facts clients, cache-first repository
 data/diary              meal logging, day totals, favourites
 feature/capture         CameraX capture and permission states
 feature/results         the results bottom sheet
-feature/home            today's ring and macros
-feature/settings        API key, goal, units, local-only mode
+feature/home            today's ring, macros and meals
+feature/history         calendar-range trends and per-day meals
+feature/settings        API keys, goals, units, local-only mode
 build-logic             convention plugins shared by every module
 ```
 
@@ -157,6 +161,26 @@ Three things in this layer exist because the real APIs misbehave:
 
 Sodium is also normalised: USDA reports milligrams, Open Food Facts reports grams.
 
+### The on-device pass
+
+There is no on-device recognition in the shipped app, and that is a size decision rather than
+unfinished work. The stack was built and measured: ML Kit object detection plus the TensorFlow Lite
+runtime added roughly **25 MB of native libraries to a 3 MB app** (82 MB before trimming ABIs).
+
+Object detection on its own finds *where* food is but cannot name it, so without a classifier model
+— which can't be committed, for size and licensing reasons — all that weight buys is unnamed
+placeholder rows that the cloud pass overwrites a second later. That is a bad trade for anyone
+downloading the APK.
+
+The architecture still supports it. `LocalFoodRecognizer` reporting unavailable is a supported
+state, not a failure: the orchestrator skips straight to the cloud pass. To turn it back on, add
+`com.google.mlkit:object-detection` and `org.tensorflow:tensorflow-lite` to `:data:recognition`,
+restore the classifier, and drop a model at `app/src/main/assets/food_classifier.tflite` with a
+matching `food_labels.txt`.
+
+Barcode scanning uses the **Play Services** ML Kit variant, where the model lives in Google Play
+Services rather than the APK — the bundled equivalent alone costs about 20 MB.
+
 ### Portions
 
 Volume and count units are meaningless without knowing the food: a cup of spinach is ~30 g and a
@@ -196,6 +220,6 @@ USDA_API_KEY=...   python3 tools/check_nutrition.py   # USDA + Open Food Facts
 | 0 | Project skeleton, modules, DI, theme, CI, releases | ✅ |
 | 1 | CameraX capture, Gemini detection, results bottom sheet | ✅ |
 | 2 | USDA + Open Food Facts, Room cache, portion maths, diary, Home | ✅ |
-| 3 | TFLite + ML Kit local pass, offline queue, Gemini Nano | ⏳ |
-| 4 | Brands, barcode scanning, favourites, portion learning, History | ⏳ |
-| 5 | Baseline profile, shared-element transitions, a11y pass, polish | ⏳ |
+| 3 | Offline re-analysis queue; local pass built then deliberately dropped on size | ✅ |
+| 4 | Barcode scanning, food search, recents, manual entry, History | ✅ |
+| 5 | Baseline profile, a11y pass, shared-element transitions | ◐ |

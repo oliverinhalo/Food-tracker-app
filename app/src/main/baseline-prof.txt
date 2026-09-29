@@ -1,0 +1,20 @@
+# Baseline profile: classes and methods AOT-compiled at install time instead of being JIT'd on
+# first use. Covers the cold-start path (Application, Activity, theme, navigation) and the scan
+# flow, which is the first thing anyone does and the place jank is most visible.
+#
+# Hand-written rather than generated: generating one needs a Macrobenchmark run on a real device,
+# which this project cannot do in CI. Wildcards are deliberately broad -- an over-inclusive profile
+# costs a little install time, an under-inclusive one costs frames on the path that matters.
+HSPLdev/foodtracker/FoodTrackerApplication;->**(**)**
+HSPLdev/foodtracker/MainActivity;->**(**)**
+HSPLdev/foodtracker/navigation/**->**(**)**
+HSPLdev/foodtracker/core/ui/theme/**->**(**)**
+HSPLdev/foodtracker/core/ui/component/**->**(**)**
+HSPLdev/foodtracker/core/model/**->**(**)**
+HSPLdev/foodtracker/core/common/**->**(**)**
+HSPLdev/foodtracker/feature/home/**->**(**)**
+HSPLdev/foodtracker/feature/capture/**->**(**)**
+HSPLdev/foodtracker/feature/results/**->**(**)**
+HSPLdev/foodtracker/domain/recognition/**->**(**)**
+HSPLdev/foodtracker/domain/nutrition/**->**(**)**
+HSPLdev/foodtracker/core/text/**->**(**)**
