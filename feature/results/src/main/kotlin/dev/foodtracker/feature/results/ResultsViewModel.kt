@@ -131,6 +131,7 @@ class ResultsViewModel @Inject constructor(
                 phase = AnalysisPhase.ANALYZING,
                 stage = AnalysisStage.PREPARING,
                 mealType = MealType.suggestedFor(timeProvider.now()),
+                captureId = captureId,
             )
 
             val image = captureStore.load(captureId)

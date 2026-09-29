@@ -22,3 +22,7 @@ release/
 app/src/main/assets/food_classifier.tflite
 secrets.properties
 keystore.properties
+
+# Python bytecode from the tools/ scripts.
+__pycache__/
+*.pyc

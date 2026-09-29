@@ -41,6 +41,7 @@ data class ResultsUiState(
     val picker: FoodPickerState? = null,
     /** Set when the sheet is editing an already-logged meal rather than creating one. */
     val editingMealId: String? = null,
+    val captureId: String? = null,
     val recentlyRemoved: RemovedItem? = null,
     val isLogging: Boolean = false,
     val loggedSuccessfully: Boolean = false,
@@ -56,6 +57,9 @@ data class ResultsUiState(
         get() = items.isNotEmpty() && !isLogging
 
     val isEditing: Boolean get() = editingMealId != null
+
+    /** Whether there is a photo behind this sheet, which decides if retrying means anything. */
+    val hasCapture: Boolean get() = captureId != null
 
     val isRefining: Boolean
         get() = phase == AnalysisPhase.PROVISIONAL

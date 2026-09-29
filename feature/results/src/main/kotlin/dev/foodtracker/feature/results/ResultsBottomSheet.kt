@@ -120,16 +120,30 @@ fun ResultsBottomSheet(
                 // a blurry shot. Without this the sheet showed an empty list under a totals
                 // skeleton that would never resolve, which reads as a hang rather than an answer.
                 !state.isBusy && state.items.isEmpty() -> {
-                    MessageState(
-                        icon = Icons.Default.NoFood,
-                        title = "No food found in that photo",
-                        body = "Try again with the plate filling more of the frame, or add the food yourself.",
-                        actionLabel = "Try again",
-                        onAction = { onAction(ResultsAction.Retry) },
-                        modifier = Modifier
-                            .padding(vertical = 24.dp)
-                            .testTag(ResultsTestTags.NO_RESULTS),
-                    )
+                    Column {
+                        MessageState(
+                            icon = Icons.Default.NoFood,
+                            title = if (state.hasCapture) {
+                                "No food found in that photo"
+                            } else {
+                                "Nothing here yet"
+                            },
+                            body = if (state.hasCapture) {
+                                "Try again with the plate filling more of the frame, or add the food yourself."
+                            } else {
+                                "Search for a food to add it to this meal."
+                            },
+                            // Retrying is meaningless without a photo behind the sheet, and offering
+                            // a button that does nothing is worse than offering none.
+                            actionLabel = "Try again".takeIf { state.hasCapture },
+                            onAction = { onAction(ResultsAction.Retry) }.takeIf { state.hasCapture },
+                            modifier = Modifier
+                                .padding(vertical = 24.dp)
+                                .testTag(ResultsTestTags.NO_RESULTS),
+                        )
+                        // Without this, removing the last item left no way to add another.
+                        AddItemButton(onAction = onAction)
+                    }
                 }
 
                 else -> {
@@ -192,7 +206,9 @@ private fun TotalsHeader(state: ResultsUiState) {
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (state.hasResolvedNutrition || !state.isBusy) {
+                // A confident "0 kcal" would present unknown calories as a measured zero, which is
+                // worse than admitting the lookup found nothing.
+                if (state.hasResolvedNutrition) {
                     Text(
                         text = "${ResultsFormatting.calories(totals.calories)} kcal",
                         style = MaterialTheme.typography.headlineMedium,
@@ -202,8 +218,14 @@ private fun TotalsHeader(state: ResultsUiState) {
                             // TalkBack useful without interrupting every frame.
                             .semantics { liveRegion = LiveRegionMode.Polite },
                     )
-                } else {
+                } else if (state.isBusy) {
                     SkeletonBlock(modifier = Modifier.fillMaxWidth(0.4f), height = 32.dp)
+                } else {
+                    Text(
+                        text = "No calories yet",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 
@@ -368,18 +390,22 @@ private fun ItemList(state: ResultsUiState, onAction: (ResultsAction) -> Unit) {
             }
         }
 
-        item {
-            OutlinedButton(
-                onClick = { onAction(ResultsAction.AddEmptyItem) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(ResultsTestTags.ADD_ITEM),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Add missed item")
-            }
-        }
+        item { AddItemButton(onAction = onAction) }
+    }
+}
+
+@Composable
+private fun AddItemButton(onAction: (ResultsAction) -> Unit) {
+    OutlinedButton(
+        onClick = { onAction(ResultsAction.AddEmptyItem) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .testTag(ResultsTestTags.ADD_ITEM),
+    ) {
+        Icon(Icons.Default.Add, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        Text("Add missed item")
     }
 }
 

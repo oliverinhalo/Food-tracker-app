@@ -39,14 +39,32 @@ STOP = {"a", "an", "and", "of", "with", "in", "on", "the", "fresh", "raw", "plai
         "prepared", "style", "homemade", "serving", "portion", "piece", "pieces"}
 MIN_SCORE = 0.42
 
-# Physically plausible kcal/100g, mirroring FoodCategory.isPlausibleEnergy.
-CATEGORY_BOUNDS = {
-    "vegetable": ((("broccoli", "carrot", "pepper", "tomato", "onion", "mushroom", "corn",
-                    "cauliflower", "courgette", "zucchini", "cucumber")), (0, 160)),
-    "leafy": ((("lettuce", "spinach", "kale", "rocket", "salad", "cabbage")), (0, 90)),
-    "grain": ((("rice", "pasta", "spaghetti", "noodle", "couscous", "quinoa")), (40, 220)),
-    "meat": ((("chicken", "beef", "pork", "lamb", "turkey", "fish", "salmon", "tuna")), (30, 650)),
-}
+# Physically plausible kcal/100g per category, mirroring FoodCategory and isPlausibleEnergy.
+# Order matters exactly as it does in the Kotlin enum: the first keyword hit wins, so a dish word
+# like "soup" has to outrank the ingredient it names.
+CATEGORY_BOUNDS = [
+    (("oil", "butter", "margarine", "ghee", "lard", "mayonnaise", "mayo"), (250, 950)),
+    (("sauce", "dressing", "ketchup", "mustard", "gravy", "salsa", "hummus", "dip", "syrup", "jam", "honey"), (0, 750)),
+    (("soup", "stew", "broth", "curry", "chowder", "casserole"), (0, 250)),
+    (("juice", "soda", "cola", "coffee", "tea", "beer", "wine", "smoothie", "water", "milkshake", "drink"), (0, 300)),
+    (("milk", "cream", "buttermilk", "kefir"), (5, 400)),
+    (("yoghurt", "yogurt", "quark", "skyr", "cottage cheese", "creme fraiche"), (15, 300)),
+    (("cheese", "cheddar", "mozzarella", "parmesan", "feta", "brie", "gouda"), (30, 500)),
+    (("bread", "toast", "bagel", "roll", "bun", "croissant", "muffin", "pancake", "waffle", "tortilla", "pita", "naan"), (100, 550)),
+    (("cereal", "granola", "muesli", "cornflakes", "oats", "porridge", "oatmeal"), (250, 550)),
+    (("rice", "pasta", "spaghetti", "noodle", "couscous", "quinoa", "barley", "bulgur", "risotto", "macaroni"), (40, 220)),
+    (("potato", "fries", "chips", "sweet potato", "yam", "cassava", "carrot", "beetroot", "parsnip"), (10, 400)),
+    (("bean", "lentil", "chickpea", "pea", "tofu", "tempeh", "edamame"), (20, 420)),
+    (("chicken", "beef", "pork", "lamb", "turkey", "duck", "steak", "mince", "bacon", "sausage",
+      "ham", "fish", "salmon", "tuna", "cod", "prawn", "shrimp", "meat", "burger", "patty"), (30, 650)),
+    (("egg", "omelette", "omelet", "frittata"), (40, 420)),
+    (("nut", "almond", "cashew", "walnut", "peanut", "pistachio", "seed", "sesame"), (300, 800)),
+    (("apple", "banana", "orange", "berry", "berries", "grape", "melon", "peach", "pear", "mango", "pineapple", "fruit", "avocado"), (10, 400)),
+    (("lettuce", "spinach", "kale", "rocket", "arugula", "salad", "cabbage", "greens"), (0, 90)),
+    (("broccoli", "cauliflower", "courgette", "zucchini", "pepper", "tomato", "onion", "mushroom",
+      "cucumber", "aubergine", "eggplant", "vegetable", "sweetcorn", "corn"), (0, 160)),
+    (("chocolate", "biscuit", "cookie", "cake", "crisps", "candy", "sweet", "ice cream", "doughnut", "donut", "brownie"), (100, 700)),
+]
 
 
 def tokens(text):
@@ -90,9 +108,12 @@ def coverage(query, candidate):
 
 
 def plausible(name, kcal):
-    for keywords, (lo, hi) in CATEGORY_BOUNDS.values():
-        if any(k in name.lower() for k in keywords):
+    lowered = name.lower()
+    for keywords, (lo, hi) in CATEGORY_BOUNDS:
+        if any(k in lowered for k in keywords):
             return lo <= kcal <= hi
+    # No category matched, so there is nothing to judge against; PortionProfile.GENERIC behaves the
+    # same way by declining to constrain an unknown food.
     return 0 <= kcal <= 900
 
 
@@ -120,7 +141,10 @@ def score(query, cooking_method, candidate_name, kcal):
             s -= 0.25
         elif not wants_cooked and (cand_words & COOKED):
             s -= 0.25
-    return max(0.0, s - 0.05)
+    # FoodMatcher ADDS this when the branded-ness matches what was asked for, which for these
+    # generic queries means the unbranded USDA rows. Subtracting it scored every candidate 0.10
+    # below the app and turned real matches into "no plausible match".
+    return max(0.0, s + 0.05)
 
 
 def recognise(api_key):
@@ -178,6 +202,10 @@ def main() -> int:
     usda_key = os.environ.get("USDA_API_KEY", "")
     if not gemini_key:
         sys.exit("set GEMINI_API_KEY")
+    # Without USDA every item finds no candidates, which would otherwise be reported as an
+    # implausible calorie total rather than as the configuration problem it is.
+    if not usda_key:
+        sys.exit("set USDA_API_KEY: without it there are no candidates to match against")
 
     print("Recognising the test plate...")
     model, items = recognise(gemini_key)

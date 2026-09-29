@@ -2,6 +2,7 @@ package dev.foodtracker.feature.history
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -154,7 +155,7 @@ class HistoryScreenTest {
             onDeleteMeal = { deleted = it },
         )
 
-        composeRule.onNodeWithText("Delete this meal").performClick()
+        composeRule.onNodeWithContentDescription("Delete this meal").performClick()
 
         assert(deleted == "meal-9") { "expected the meal id, got $deleted" }
     }

@@ -26,6 +26,9 @@ internal val Project.libs: VersionCatalog
 internal fun Project.configureAndroidCommon(extension: CommonExtension) {
     extension.compileSdk = COMPILE_SDK
     extension.defaultConfig.minSdk = MIN_SDK
+    // Every module with androidTest sources needs this, not just the application. Without it the
+    // tests compile and then nothing can discover them, which looks exactly like having no tests.
+    extension.defaultConfig.testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
     extension.compileOptions.apply {
         sourceCompatibility = JavaVersion.VERSION_17
