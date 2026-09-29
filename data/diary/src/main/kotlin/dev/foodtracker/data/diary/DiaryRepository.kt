@@ -70,28 +70,7 @@ class DiaryRepository @Inject constructor(
         val mealId = UUID.randomUUID().toString()
         val loggedAt = timeProvider.epochMillis()
 
-        // Every item the user confirmed is written, including any whose nutrition never resolved.
-        // Dropping those silently made a whole meal vanish from Home whenever a lookup failed --
-        // the user confirmed a plate of food and got an empty day back.
-        val rows = items.map { item ->
-            val nutrients = item.nutrients ?: Nutrients.ZERO
-            LoggedFoodItemEntity(
-                id = UUID.randomUUID().toString(),
-                mealId = mealId,
-                name = item.name,
-                brand = item.brand,
-                foodKey = foodKeyOf(item.name, item.brand),
-                cachedFoodId = item.foodId,
-                amount = item.portion.amount,
-                unit = item.portion.unit.name,
-                grams = item.portion.grams,
-                calories = nutrients.calories,
-                proteinGrams = nutrients.proteinGrams,
-                carbsGrams = nutrients.carbsGrams,
-                fatGrams = nutrients.fatGrams,
-                recognitionSource = item.source.name,
-            )
-        }
+        val rows = items.map { item -> item.toRow(mealId) }
 
         diaryDao.logMeal(
             meal = LoggedMealEntity(
@@ -109,6 +88,24 @@ class DiaryRepository @Inject constructor(
     }
 
     suspend fun deleteMeal(mealId: String) = withContext(ioDispatcher) { diaryDao.deleteMeal(mealId) }
+
+    suspend fun mealById(mealId: String): LoggedMeal? =
+        withContext(ioDispatcher) { diaryDao.mealById(mealId)?.toDomain() }
+
+    /** Saves an edit to an already-logged meal, keeping its id, date and position in the day. */
+    suspend fun updateMeal(
+        mealId: String,
+        mealType: MealType,
+        items: List<DetectedItem>,
+    ) = withContext(ioDispatcher) {
+        val existing = diaryDao.mealById(mealId) ?: return@withContext
+        val rows = items.map { item -> item.toRow(mealId) }
+
+        diaryDao.replaceMeal(
+            meal = existing.meal.copy(mealType = mealType.name),
+            items = rows,
+        )
+    }
 
     fun favourites(limit: Int = 30): Flow<List<FavouriteFood>> =
         diaryDao.favourites(limit).map { rows -> rows.map { it.toDomain() } }
@@ -161,4 +158,28 @@ private fun FavouriteFoodEntity.toDomain() = FavouriteFood(
     cachedFoodId = cachedFoodId,
     useCount = useCount,
     lastUsedMillis = lastUsedMillis,
+)
+
+/**
+ * Nutrition is denormalised onto the row on purpose: a meal logged last month must keep the
+ * numbers it was logged with, even if the food database is later corrected upstream.
+ *
+ * Every confirmed item is written, including any whose nutrition never resolved. Dropping those
+ * silently made whole meals vanish from Home whenever a lookup failed.
+ */
+private fun DetectedItem.toRow(mealId: String) = LoggedFoodItemEntity(
+    id = UUID.randomUUID().toString(),
+    mealId = mealId,
+    name = name,
+    brand = brand,
+    foodKey = foodKeyOf(name, brand),
+    cachedFoodId = foodId,
+    amount = portion.amount,
+    unit = portion.unit.name,
+    grams = portion.grams,
+    calories = nutrients?.calories ?: 0.0,
+    proteinGrams = nutrients?.proteinGrams ?: 0.0,
+    carbsGrams = nutrients?.carbsGrams ?: 0.0,
+    fatGrams = nutrients?.fatGrams ?: 0.0,
+    recognitionSource = source.name,
 )

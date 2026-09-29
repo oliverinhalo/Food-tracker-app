@@ -13,6 +13,7 @@ import dev.foodtracker.core.model.Portion
 import dev.foodtracker.core.model.RecognitionEvent
 import dev.foodtracker.core.model.RecognitionSource
 import dev.foodtracker.data.diary.DiaryRepository
+import dev.foodtracker.data.diary.LoggedFood
 import dev.foodtracker.data.recognition.CaptureStore
 import dev.foodtracker.data.nutrition.FoodRecord
 import dev.foodtracker.data.nutrition.NutritionRepository
@@ -78,6 +79,36 @@ class ResultsViewModel @Inject constructor(
             mealType = MealType.suggestedFor(timeProvider.now()),
         )
         openPicker(item.id)
+    }
+
+    /**
+     * Reopens an already-logged meal for editing. Until now a mislogged meal could only be
+     * deleted and redone from scratch, which meant re-photographing food that had been eaten.
+     */
+    fun editLoggedMeal(mealId: String) {
+        analysisJob?.cancel()
+        captureId = null
+        originalEstimates.clear()
+
+        viewModelScope.launch {
+            val meal = diaryRepository.mealById(mealId)
+            if (meal == null) {
+                _uiState.value = ResultsUiState(
+                    phase = AnalysisPhase.FAILED,
+                    stage = AnalysisStage.DONE,
+                    errorMessage = "That meal is no longer in your diary.",
+                )
+                return@launch
+            }
+
+            _uiState.value = ResultsUiState(
+                phase = AnalysisPhase.COMPLETE,
+                stage = AnalysisStage.DONE,
+                editingMealId = mealId,
+                mealType = meal.mealType,
+                items = meal.items.map { it.toDetectedItem() },
+            )
+        }
     }
 
     fun analyze(captureId: String) {
@@ -379,7 +410,12 @@ class ResultsViewModel @Inject constructor(
 
         viewModelScope.launch {
             runCatching {
-                diaryRepository.logMeal(mealType = state.mealType, items = state.items)
+                val editingId = state.editingMealId
+                if (editingId != null) {
+                    diaryRepository.updateMeal(editingId, state.mealType, state.items)
+                } else {
+                    diaryRepository.logMeal(mealType = state.mealType, items = state.items)
+                }
                 recordPortionCorrections(state.items)
             }.onSuccess {
                 _uiState.update { it.copy(isLogging = false, stage = AnalysisStage.DONE, loggedSuccessfully = true) }
@@ -479,3 +515,22 @@ internal fun FoodRecord.toOption(): FoodOption = FoodOption(
     caloriesPer100g = per100g.calories.toInt(),
     origin = if (barcode != null) FoodOption.Origin.BARCODE else FoodOption.Origin.DATABASE,
 )
+
+/**
+ * A logged item reopened for editing. Its stored nutrition is per-portion, but the sheet works in
+ * per-100g terms, so it is converted back -- otherwise changing the amount would scale numbers that
+ * were already scaled.
+ */
+internal fun LoggedFood.toDetectedItem(): DetectedItem {
+    val per100g = if (portion.grams > 0) nutrients * (100.0 / portion.grams) else null
+
+    return DetectedItem(
+        id = id,
+        name = name,
+        confidence = 1f,
+        portion = portion,
+        source = RecognitionSource.USER,
+        brand = brand,
+        nutrientsPer100g = per100g,
+    )
+}

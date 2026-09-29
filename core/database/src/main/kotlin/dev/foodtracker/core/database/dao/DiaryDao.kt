@@ -85,6 +85,21 @@ interface DiaryDao {
     @Query("DELETE FROM logged_meals WHERE id = :mealId")
     suspend fun deleteMeal(mealId: String)
 
+    @Query("DELETE FROM logged_food_items WHERE mealId = :mealId")
+    suspend fun deleteItemsForMeal(mealId: String)
+
+    /**
+     * Replaces a meal's contents in one transaction. Editing is a replace rather than a diff
+     * because items can be added, removed and renamed at once, and a half-applied edit would leave
+     * a day's totals wrong with no sign of why.
+     */
+    @Transaction
+    suspend fun replaceMeal(meal: LoggedMealEntity, items: List<LoggedFoodItemEntity>) {
+        deleteItemsForMeal(meal.id)
+        insertMeal(meal)
+        insertItems(items)
+    }
+
     @Query("DELETE FROM logged_food_items WHERE id = :itemId")
     suspend fun deleteItem(itemId: String)
 

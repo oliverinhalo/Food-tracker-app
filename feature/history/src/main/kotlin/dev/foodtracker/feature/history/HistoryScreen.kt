@@ -43,6 +43,7 @@ object HistoryTestTags {
 
 @Composable
 fun HistoryRoute(
+    onEditMeal: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
@@ -53,6 +54,7 @@ fun HistoryRoute(
         onSelectRange = viewModel::selectRange,
         onSelectDate = viewModel::selectDate,
         onDeleteMeal = viewModel::deleteMeal,
+        onEditMeal = onEditMeal,
         modifier = modifier,
     )
 }
@@ -64,6 +66,7 @@ internal fun HistoryScreen(
     onSelectRange: (HistoryRange) -> Unit,
     onSelectDate: (java.time.LocalDate) -> Unit,
     onDeleteMeal: (String) -> Unit,
+    onEditMeal: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -140,7 +143,11 @@ internal fun HistoryScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 state.selectedMeals.forEach { meal ->
-                    MealRow(meal = meal, onDelete = { onDeleteMeal(meal.id) })
+                    MealRow(
+                        meal = meal,
+                        onDelete = { onDeleteMeal(meal.id) },
+                        onClick = { onEditMeal(meal.id) },
+                    )
                 }
             }
         }
@@ -160,8 +167,11 @@ private fun Stat(label: String, value: String) {
 }
 
 @Composable
-private fun MealRow(meal: LoggedMeal, onDelete: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun MealRow(meal: LoggedMeal, onDelete: () -> Unit, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,

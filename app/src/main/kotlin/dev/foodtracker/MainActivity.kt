@@ -65,6 +65,7 @@ private fun FoodTrackerApp() {
     val navController = rememberNavController()
     var pendingCaptureId by remember { mutableStateOf<String?>(null) }
     var manualEntryOpen by remember { mutableStateOf(false) }
+    var editingMealId by remember { mutableStateOf<String?>(null) }
     val resultsViewModel: ResultsViewModel = hiltViewModel()
 
     Scaffold(
@@ -77,11 +78,15 @@ private fun FoodTrackerApp() {
                 manualEntryOpen = true
                 resultsViewModel.startManualEntry()
             },
+            onEditMeal = { mealId ->
+                editingMealId = mealId
+                resultsViewModel.editLoggedMeal(mealId)
+            },
             modifier = Modifier.padding(padding),
         )
     }
 
-    if (pendingCaptureId != null || manualEntryOpen) {
+    if (pendingCaptureId != null || manualEntryOpen || editingMealId != null) {
         val state by resultsViewModel.uiState.collectAsStateWithLifecycle()
 
         pendingCaptureId?.let { captureId ->
@@ -97,6 +102,7 @@ private fun FoodTrackerApp() {
                 val cameFromCapture = pendingCaptureId != null
                 pendingCaptureId = null
                 manualEntryOpen = false
+                editingMealId = null
                 if (cameFromCapture) {
                     navController.navigate(HomeRouteKey) {
                         popUpTo(HomeRouteKey) { inclusive = true }

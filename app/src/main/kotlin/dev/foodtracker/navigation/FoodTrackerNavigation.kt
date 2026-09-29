@@ -36,6 +36,7 @@ fun FoodTrackerNavHost(
     navController: NavHostController,
     onShowResults: (String) -> Unit,
     onAddManually: () -> Unit,
+    onEditMeal: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NavHost(
@@ -44,7 +45,7 @@ fun FoodTrackerNavHost(
         modifier = modifier,
     ) {
         composable<HomeRouteKey> {
-            HomeRoute(onAddManually = onAddManually)
+            HomeRoute(onAddManually = onAddManually, onEditMeal = onEditMeal)
         }
 
         composable<CaptureRouteKey> {
@@ -52,7 +53,7 @@ fun FoodTrackerNavHost(
         }
 
         composable<HistoryRouteKey> {
-            HistoryRoute()
+            HistoryRoute(onEditMeal = onEditMeal)
         }
 
         composable<SettingsRouteKey> {

@@ -39,6 +39,8 @@ data class ResultsUiState(
     val degradeReason: DegradeReason? = null,
     val errorMessage: String? = null,
     val picker: FoodPickerState? = null,
+    /** Set when the sheet is editing an already-logged meal rather than creating one. */
+    val editingMealId: String? = null,
     val isLogging: Boolean = false,
     val loggedSuccessfully: Boolean = false,
 ) {
@@ -51,6 +53,8 @@ data class ResultsUiState(
 
     val canConfirm: Boolean
         get() = items.isNotEmpty() && !isLogging
+
+    val isEditing: Boolean get() = editingMealId != null
 
     val isRefining: Boolean
         get() = phase == AnalysisPhase.PROVISIONAL

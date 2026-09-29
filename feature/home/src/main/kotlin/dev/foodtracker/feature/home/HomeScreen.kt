@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.NoMeals
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +22,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -39,17 +42,24 @@ object HomeTestTags {
 @Composable
 fun HomeRoute(
     onAddManually: () -> Unit,
+    onEditMeal: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    HomeScreen(state = state, onAddManually = onAddManually, modifier = modifier)
+    HomeScreen(
+        state = state,
+        onAddManually = onAddManually,
+        onEditMeal = onEditMeal,
+        modifier = modifier,
+    )
 }
 
 @Composable
 internal fun HomeScreen(
     state: HomeUiState,
     onAddManually: () -> Unit,
+    onEditMeal: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -125,15 +135,23 @@ internal fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text("Meals", style = MaterialTheme.typography.titleSmall, modifier = Modifier.fillMaxWidth())
-                state.meals.forEach { meal -> MealRow(meal) }
+                state.meals.forEach { meal ->
+                    MealRow(meal = meal, onClick = { onEditMeal(meal.id) })
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MealRow(meal: MealSummary) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun MealRow(meal: MealSummary, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = "${meal.mealType.name.lowercase()}, ${meal.calories} calories. Tap to edit." },
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,

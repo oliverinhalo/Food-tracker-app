@@ -132,7 +132,13 @@ fun ResultsBottomSheet(
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                         .testTag(ResultsTestTags.CONFIRM),
                 ) {
-                    Text(if (state.isLogging) "Logging…" else "Log ${state.items.size} item${if (state.items.size == 1) "" else "s"}")
+                    Text(
+                        when {
+                            state.isLogging -> if (state.isEditing) "Saving…" else "Logging…"
+                            state.isEditing -> "Save changes"
+                            else -> "Log ${state.items.size} item${if (state.items.size == 1) "" else "s"}"
+                        },
+                    )
                 }
             }
         }
@@ -156,7 +162,7 @@ private fun TotalsHeader(state: ResultsUiState) {
         ) {
             Column {
                 Text(
-                    text = "This meal",
+                    text = if (state.isEditing) "Editing meal" else "This meal",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
