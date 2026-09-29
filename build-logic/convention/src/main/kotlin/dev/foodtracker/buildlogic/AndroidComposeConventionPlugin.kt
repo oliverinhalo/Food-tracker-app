@@ -26,10 +26,16 @@ class AndroidComposeConventionPlugin : Plugin<Project> {
                 add("debugImplementation", libs.findLibrary("compose-ui-tooling").get())
             }
 
-            // `./gradlew assembleRelease -Pfoodtracker.composeReports=true` writes stability and
-            // recomposition reports, which is how we check for jank regressions in phase 5.
-            if (providers.gradleProperty("foodtracker.composeReports").isPresent) {
-                extensions.getByType<ComposeCompilerGradlePluginExtension>().apply {
+            extensions.getByType<ComposeCompilerGradlePluginExtension>().apply {
+                // Our domain models are immutable but live in modules without the Compose runtime,
+                // so they cannot be annotated. Telling the compiler explicitly is what lets item
+                // rows skip recomposition.
+                stabilityConfigurationFiles.add(
+                    isolated.rootProject.projectDirectory.file("compose-stability.conf"),
+                )
+
+                // `-Pfoodtracker.composeReports=true` writes stability and recomposition reports.
+                if (providers.gradleProperty("foodtracker.composeReports").isPresent) {
                     val dir = layout.buildDirectory.dir("compose-reports")
                     reportsDestination.set(dir)
                     metricsDestination.set(dir)

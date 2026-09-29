@@ -60,6 +60,7 @@ class ResultsViewModel @Inject constructor(
     private val offeredRecords = mutableMapOf<String, FoodRecord>()
 
     private var searchJob: Job? = null
+    private var undoJob: Job? = null
 
     /**
      * Opens the sheet with no photo behind it, for foods that cannot be photographed -- a coffee
@@ -215,15 +216,16 @@ class ResultsViewModel @Inject constructor(
                 viewModelScope.launch { resolveNutritionForCurrentItems() }
             }
 
-            is ResultsAction.RemoveItem -> _uiState.update { state ->
-                state.copy(items = state.items.filterNot { it.id == action.itemId })
+            is ResultsAction.RemoveItem -> removeItem(action.itemId)
+
+            ResultsAction.UndoRemove -> _uiState.update { state ->
+                val removed = state.recentlyRemoved ?: return@update state
+                val restored = state.items.toMutableList()
+                restored.add(removed.index.coerceIn(0, restored.size), removed.item)
+                state.copy(items = restored, recentlyRemoved = null)
             }
 
-            is ResultsAction.RestoreItem -> _uiState.update { state ->
-                val restored = state.items.toMutableList()
-                restored.add(action.index.coerceIn(0, restored.size), action.item)
-                state.copy(items = restored)
-            }
+            ResultsAction.DismissUndo -> _uiState.update { it.copy(recentlyRemoved = null) }
 
             is ResultsAction.ChangeMealType -> _uiState.update { it.copy(mealType = action.mealType) }
 
@@ -402,6 +404,25 @@ class ResultsViewModel @Inject constructor(
         _uiState.update { it.copy(picker = it.picker?.copy(isScanning = false)) }
     }
 
+    private fun removeItem(itemId: String) {
+        undoJob?.cancel()
+
+        _uiState.update { state ->
+            val index = state.items.indexOfFirst { it.id == itemId }
+            if (index < 0) return@update state
+            state.copy(
+                items = state.items.filterNot { it.id == itemId },
+                recentlyRemoved = RemovedItem(state.items[index], index),
+            )
+        }
+
+        // The offer expires on its own; leaving it on screen would cover the confirm button.
+        undoJob = viewModelScope.launch {
+            delay(UNDO_WINDOW_MILLIS)
+            _uiState.update { it.copy(recentlyRemoved = null) }
+        }
+    }
+
     private fun confirm() {
         val state = _uiState.value
         if (!state.canConfirm) return
@@ -534,3 +555,5 @@ internal fun LoggedFood.toDetectedItem(): DetectedItem {
         nutrientsPer100g = per100g,
     )
 }
+
+private const val UNDO_WINDOW_MILLIS = 6_000L

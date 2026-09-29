@@ -133,4 +133,45 @@ class ResultsStateTest {
         assertThat(updated.portion.amount).isEqualTo(0.0)
         assertThat(updated.portion.grams).isEqualTo(0.0)
     }
+
+    @Test
+    fun `a removed item is held so it can be put back`() {
+        val kept = item("keep")
+        val gone = item("gone")
+        val state = ResultsUiState(items = listOf(kept, gone))
+
+        val afterRemoval = state.copy(
+            items = listOf(kept),
+            recentlyRemoved = RemovedItem(gone, index = 1),
+        )
+
+        assertThat(afterRemoval.items.map { it.id }).containsExactly("keep")
+        assertThat(afterRemoval.recentlyRemoved!!.item.id).isEqualTo("gone")
+        assertThat(afterRemoval.recentlyRemoved!!.index).isEqualTo(1)
+    }
+
+    @Test
+    fun `undo puts the item back where it was, not on the end`() {
+        val first = item("first")
+        val middle = item("middle")
+        val last = item("last")
+
+        val removed = RemovedItem(middle, index = 1)
+        val restored = listOf(first, last).toMutableList().apply {
+            add(removed.index.coerceIn(0, size), removed.item)
+        }
+
+        assertThat(restored.map { it.id }).containsExactly("first", "middle", "last").inOrder()
+    }
+
+    @Test
+    fun `undo survives the list having shrunk underneath it`() {
+        // The index is clamped, so restoring after further removals appends rather than throwing.
+        val removed = RemovedItem(item("gone"), index = 5)
+        val restored = mutableListOf(item("only")).apply {
+            add(removed.index.coerceIn(0, size), removed.item)
+        }
+
+        assertThat(restored.map { it.id }).containsExactly("only", "gone").inOrder()
+    }
 }

@@ -36,6 +36,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -116,6 +117,13 @@ fun ResultsBottomSheet(
                 else -> {
                     ItemList(state = state, onAction = onAction)
                 }
+            }
+
+            state.recentlyRemoved?.let { removed ->
+                UndoRemovalBar(
+                    name = removed.item.name.ifBlank { "Item" },
+                    onUndo = { onAction(ResultsAction.UndoRemove) },
+                )
             }
 
             if (state.items.isNotEmpty()) {
@@ -246,6 +254,29 @@ private fun MacroLegendItem(label: String, grams: Double) {
 }
 
 @Composable
+private fun UndoRemovalBar(name: String, onUndo: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .testTag(ResultsTestTags.UNDO_BAR)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Removed $name",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onUndo, modifier = Modifier.testTag(ResultsTestTags.UNDO_BUTTON)) {
+            Text("Undo")
+        }
+    }
+}
+
+@Composable
 private fun DegradeBanner(message: String, isActionable: Boolean) {
     Card(
         modifier = Modifier
@@ -307,7 +338,6 @@ private fun ItemList(state: ResultsUiState, onAction: (ResultsAction) -> Unit) {
     ) {
         items(items = state.items, key = { it.id }) { item ->
             SwipeToDeleteItem(
-                item = item,
                 onDelete = { onAction(ResultsAction.RemoveItem(item.id)) },
             ) {
                 FoodItemCard(item = item, onAction = onAction)
@@ -355,7 +385,6 @@ internal val MealType.displayName: String
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeToDeleteItem(
-    item: DetectedItem,
     onDelete: () -> Unit,
     content: @Composable () -> Unit,
 ) {

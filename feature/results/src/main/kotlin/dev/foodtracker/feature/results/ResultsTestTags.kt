@@ -15,6 +15,8 @@ object ResultsTestTags {
     const val PICKER_SEARCH_FIELD = "results_picker_search"
     const val PICKER_RESULTS = "results_picker_results"
     const val PICKER_SCAN = "results_picker_scan"
+    const val UNDO_BAR = "results_undo_bar"
+    const val UNDO_BUTTON = "results_undo_button"
 
     fun itemCard(id: String) = "results_item_$id"
     fun itemIncrement(id: String) = "results_item_inc_$id"

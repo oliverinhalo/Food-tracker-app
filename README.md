@@ -205,6 +205,17 @@ unit round-tripping across every category, label similarity thresholds, every me
 winning, occluded duplicates, alternatives de-duplication), the portion learner's confidence ramp,
 and the API quirks above (kJ conversion, sodium units, implausible-energy correction).
 
+Compose stability is checked rather than assumed:
+
+```bash
+./gradlew assembleRelease -Pfoodtracker.composeReports=true
+```
+
+This writes stability and recomposition reports per module. The domain models are immutable but
+live in modules that deliberately have no Compose dependency, so they cannot be annotated —
+`compose-stability.conf` tells the compiler instead. Without it every food row recomposed on any
+state change. Anything listed in that file must stay genuinely immutable.
+
 Two scripts check the live APIs, which unit tests cannot: they catch an endpoint disappearing or a
 field being renamed upstream.
 

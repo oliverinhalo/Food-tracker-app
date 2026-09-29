@@ -41,6 +41,7 @@ data class ResultsUiState(
     val picker: FoodPickerState? = null,
     /** Set when the sheet is editing an already-logged meal rather than creating one. */
     val editingMealId: String? = null,
+    val recentlyRemoved: RemovedItem? = null,
     val isLogging: Boolean = false,
     val loggedSuccessfully: Boolean = false,
 ) {
@@ -67,6 +68,16 @@ data class ResultsUiState(
         get() = stage != AnalysisStage.DONE
 }
 
+/**
+ * An item just swiped away, held briefly so it can be put back. Swiping is easy to do by accident
+ * while scrolling a list, and without this the only way back is to search the food up again.
+ */
+@Immutable
+data class RemovedItem(
+    val item: DetectedItem,
+    val index: Int,
+)
+
 /** Everything the user can do from the sheet. One sealed type keeps the ViewModel's surface honest. */
 sealed interface ResultsAction {
     /** Opens the "Change item" picker for one item. */
@@ -80,7 +91,8 @@ sealed interface ResultsAction {
     data class ChangeUnit(val itemId: String, val unit: dev.foodtracker.core.model.MeasurementUnit) : ResultsAction
     data class ChangeItemName(val itemId: String, val name: String) : ResultsAction
     data class RemoveItem(val itemId: String) : ResultsAction
-    data class RestoreItem(val item: DetectedItem, val index: Int) : ResultsAction
+    data object UndoRemove : ResultsAction
+    data object DismissUndo : ResultsAction
     data class ChangeMealType(val mealType: MealType) : ResultsAction
     data object AddEmptyItem : ResultsAction
     data object Retry : ResultsAction
