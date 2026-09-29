@@ -15,6 +15,7 @@ object ResultsTestTags {
     const val PICKER_SEARCH_FIELD = "results_picker_search"
     const val PICKER_RESULTS = "results_picker_results"
     const val PICKER_SCAN = "results_picker_scan"
+    const val NO_RESULTS = "results_no_results"
     const val UNDO_BAR = "results_undo_bar"
     const val UNDO_BUTTON = "results_undo_button"
 

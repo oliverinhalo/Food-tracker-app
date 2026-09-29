@@ -191,4 +191,25 @@ class ResultsStateTest {
         // And the user must still be able to try again.
         assertThat(failed.canConfirm).isTrue()
     }
+
+    @Test
+    fun `a finished analysis with nothing found is not left looking like it is still loading`() {
+        // Photographing something that is not food succeeds and returns no items. The sheet used
+        // to show an empty list under a totals skeleton that never resolved.
+        val nothingFound = ResultsUiState(
+            phase = AnalysisPhase.COMPLETE,
+            stage = AnalysisStage.DONE,
+            items = emptyList(),
+        )
+
+        assertThat(nothingFound.isBusy).isFalse()
+        assertThat(nothingFound.hasResolvedNutrition).isFalse()
+        assertThat(nothingFound.canConfirm).isFalse()
+    }
+
+    @Test
+    fun `an analysis still running is busy`() {
+        val running = ResultsUiState(phase = AnalysisPhase.ANALYZING, stage = AnalysisStage.UPLOADING)
+        assertThat(running.isBusy).isTrue()
+    }
 }

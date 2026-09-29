@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.NoFood
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -115,6 +116,22 @@ fun ResultsBottomSheet(
                     AnalyzingSkeleton(state.stage)
                 }
 
+                // The recogniser can succeed and still find nothing -- a photo of a table, a menu,
+                // a blurry shot. Without this the sheet showed an empty list under a totals
+                // skeleton that would never resolve, which reads as a hang rather than an answer.
+                !state.isBusy && state.items.isEmpty() -> {
+                    MessageState(
+                        icon = Icons.Default.NoFood,
+                        title = "No food found in that photo",
+                        body = "Try again with the plate filling more of the frame, or add the food yourself.",
+                        actionLabel = "Try again",
+                        onAction = { onAction(ResultsAction.Retry) },
+                        modifier = Modifier
+                            .padding(vertical = 24.dp)
+                            .testTag(ResultsTestTags.NO_RESULTS),
+                    )
+                }
+
                 else -> {
                     ItemList(state = state, onAction = onAction)
                 }
@@ -175,7 +192,7 @@ private fun TotalsHeader(state: ResultsUiState) {
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (state.hasResolvedNutrition) {
+                if (state.hasResolvedNutrition || !state.isBusy) {
                     Text(
                         text = "${ResultsFormatting.calories(totals.calories)} kcal",
                         style = MaterialTheme.typography.headlineMedium,
