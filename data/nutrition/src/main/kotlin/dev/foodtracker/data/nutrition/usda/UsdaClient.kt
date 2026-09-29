@@ -101,14 +101,17 @@ internal fun UsdaFood.toFoodRecord(): FoodRecord? {
     )
 
     val brand = brandName?.takeIf { it.isNotBlank() } ?: brandOwner?.takeIf { it.isNotBlank() }
+    // The key must be derived from the same text as the name, or a cached row can never be found
+    // again by the name it was stored under and every repeat lookup goes back to the network.
+    val displayName = description.tidiedUsdaDescription()
 
     return FoodRecord(
         id = "usda:$fdcId",
-        name = description.tidiedUsdaDescription(),
+        name = displayName,
         brand = brand,
         barcode = gtinUpc?.takeIf { it.isNotBlank() },
         source = FoodSource.USDA,
-        searchKey = foodKeyOf(description, brand),
+        searchKey = foodKeyOf(displayName, brand),
         // USDA values are per 100 g by definition for these data types.
         per100g = NutritionCalculator.withReconciledEnergy(nutrients),
         servingSizeGrams = servingSize?.takeIf { servingSizeUnit.equals("g", ignoreCase = true) },

@@ -21,6 +21,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp.core)
     implementation(project(":domain:nutrition"))
+    implementation(project(":data:nutrition"))
     implementation(libs.androidx.work.runtime)
     implementation(libs.hilt.work)
     ksp(libs.hilt.work.compiler)

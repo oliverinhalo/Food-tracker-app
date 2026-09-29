@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dev.foodtracker.core.datastore.SettingsRepository
+import dev.foodtracker.data.nutrition.NutritionRepository
 import dev.foodtracker.domain.recognition.CloudFoodRecognizer
 import dev.foodtracker.domain.recognition.RecognitionOutcome
 import kotlinx.coroutines.flow.first
@@ -24,6 +25,7 @@ class ReanalysisWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val queue: OfflineReanalysisQueue,
     private val cloudRecognizer: CloudFoodRecognizer,
+    private val nutritionRepository: NutritionRepository,
     private val settingsRepository: SettingsRepository,
 ) : CoroutineWorker(appContext, params) {
 
@@ -46,8 +48,17 @@ class ReanalysisWorker @AssistedInject constructor(
             val image = queue.load(entry) ?: continue
             queue.markAttempted(entry.captureId)
 
-            when (cloudRecognizer.recognize(image)) {
-                is RecognitionOutcome.Success -> queue.remove(entry.captureId)
+            when (val outcome = cloudRecognizer.recognize(image)) {
+                is RecognitionOutcome.Success -> {
+                    // Warm the food cache with what was recognised. Without this the retry
+                    // recognised the meal and then discarded it, so the whole queue was a no-op
+                    // that spent API quota for nothing.
+                    outcome.items.forEach { item ->
+                        runCatching { nutritionRepository.resolve(item.name, item.brand, item.cookingMethod) }
+                    }
+                    queue.remove(entry.captureId)
+                }
+
                 is RecognitionOutcome.Unavailable -> retryLater = true
             }
         }

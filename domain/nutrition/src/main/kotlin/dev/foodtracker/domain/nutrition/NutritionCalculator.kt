@@ -52,7 +52,17 @@ object NutritionCalculator {
     /** Below this, a per-100g energy disagreement cannot meaningfully move a day's total. */
     private const val NEGLIGIBLE_KCAL_PER_100G = 20.0
 
-    /** Replaces an implausible stated energy with the Atwater figure, leaving macros untouched. */
-    fun withReconciledEnergy(nutrients: Nutrients): Nutrients =
-        if (energyLooksConsistent(nutrients)) nutrients else nutrients.copy(calories = caloriesFromMacros(nutrients))
+    /**
+     * Replaces an implausible stated energy with the Atwater figure, leaving macros untouched.
+     *
+     * A row with no macros at all is left alone: there is nothing to compute from, and substituting
+     * the computed zero would log a real food as zero calories. Plenty of Open Food Facts entries
+     * carry energy without a macro breakdown, so this is the common case, not the edge case.
+     */
+    fun withReconciledEnergy(nutrients: Nutrients): Nutrients {
+        if (energyLooksConsistent(nutrients)) return nutrients
+        val computed = caloriesFromMacros(nutrients)
+        if (computed <= 0.0) return nutrients
+        return nutrients.copy(calories = computed)
+    }
 }

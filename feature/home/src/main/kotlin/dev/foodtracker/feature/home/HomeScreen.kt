@@ -69,7 +69,7 @@ fun HomeRoute(
         onAddManually = onAddManually,
         onEditMeal = onEditMeal,
         onQuickAdd = viewModel::quickAdd,
-        onDismissJustLogged = viewModel::dismissJustLogged,
+        onDismissQuickAddResult = viewModel::dismissQuickAddResult,
         modifier = modifier,
     )
 }
@@ -80,7 +80,7 @@ internal fun HomeScreen(
     onAddManually: () -> Unit,
     onEditMeal: (String) -> Unit,
     onQuickAdd: (QuickAddFood) -> Unit,
-    onDismissJustLogged: () -> Unit,
+    onDismissQuickAddResult: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -147,9 +147,9 @@ internal fun HomeScreen(
         if (state.quickAdd.isNotEmpty()) {
             QuickAddRow(
                 foods = state.quickAdd,
-                justLogged = state.justLogged,
+                result = state.quickAddResult,
                 onQuickAdd = onQuickAdd,
-                onDismissJustLogged = onDismissJustLogged,
+                onDismissResult = onDismissQuickAddResult,
             )
         }
 
@@ -233,17 +233,18 @@ private fun MealThumbnail(path: String?) {
 @Composable
 private fun QuickAddRow(
     foods: List<QuickAddFood>,
-    justLogged: String?,
+    result: QuickAddResult?,
     onQuickAdd: (QuickAddFood) -> Unit,
-    onDismissJustLogged: () -> Unit,
+    onDismissResult: () -> Unit,
 ) {
     val haptics = rememberHaptics()
 
     // Confirmation clears itself; a tap that produced no visible change reads as a broken button.
-    LaunchedEffect(justLogged) {
-        if (justLogged != null) {
-            delay(2_500)
-            onDismissJustLogged()
+    LaunchedEffect(result) {
+        if (result != null) {
+            // A failure needs longer: it asks the reader to go and do something about it.
+            delay(if (result is QuickAddResult.Failed) 5_000 else 2_500)
+            onDismissResult()
         }
     }
 
@@ -252,12 +253,12 @@ private fun QuickAddRow(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = justLogged ?: "Log again",
+            text = result?.message ?: "Log again",
             style = MaterialTheme.typography.titleSmall,
-            color = if (justLogged != null) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface
+            color = when (result) {
+                is QuickAddResult.Logged -> MaterialTheme.colorScheme.primary
+                is QuickAddResult.Failed -> MaterialTheme.colorScheme.error
+                null -> MaterialTheme.colorScheme.onSurface
             },
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         )

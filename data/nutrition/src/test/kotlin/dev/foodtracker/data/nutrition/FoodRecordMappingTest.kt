@@ -159,4 +159,22 @@ class FoodRecordMappingTest {
 
         assertThat(record.toEntity(nowMillis = 1L).toRecord()).isEqualTo(record)
     }
+
+    @Test
+    fun `the cache key matches the name the food is stored under`() {
+        // Regression: the key was derived from the raw USDA description while the name shown and
+        // searched for was the tidied one, so a cached food could never be found again by name and
+        // every repeat lookup went back to the network.
+        val food = UsdaFood(
+            fdcId = 1,
+            description = "Chicken, broiler or fryers, breast, skinless, boneless, meat only, cooked, grilled",
+            foodNutrients = listOf(usdaNutrient(1008, 151.0), usdaNutrient(1003, 30.5)),
+        )
+
+        val record = food.toFoodRecord()!!
+
+        assertThat(record.searchKey).isEqualTo(
+            dev.foodtracker.domain.nutrition.foodKeyOf(record.name, record.brand),
+        )
+    }
 }

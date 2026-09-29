@@ -124,15 +124,14 @@ class ResultsViewModel @Inject constructor(
 
         analysisJob?.cancel()
         analysisJob = viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    phase = AnalysisPhase.ANALYZING,
-                    stage = AnalysisStage.PREPARING,
-                    degradeReason = null,
-                    errorMessage = null,
-                    mealType = MealType.suggestedFor(timeProvider.now()),
-                )
-            }
+            // A fresh capture starts from scratch. Carrying editingMealId over would make this
+            // meal overwrite the one that was open for editing, and carrying loggedSuccessfully
+            // over would auto-dismiss the sheet on its first frame and lose the photo.
+            _uiState.value = ResultsUiState(
+                phase = AnalysisPhase.ANALYZING,
+                stage = AnalysisStage.PREPARING,
+                mealType = MealType.suggestedFor(timeProvider.now()),
+            )
 
             val image = captureStore.load(captureId)
             if (image == null) {

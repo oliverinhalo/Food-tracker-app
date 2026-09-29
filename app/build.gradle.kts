@@ -32,16 +32,24 @@ val keystoreProps: Properties? = rootProject.file("keystore.properties")
     .takeIf { it.exists() }
     ?.let { Properties().apply { FileInputStream(it).use(::load) } }
 
+/**
+ * Reads a secret, treating blank as absent.
+ *
+ * GitHub Actions exports an unset secret as an empty string rather than leaving the variable out,
+ * and "" is not null. Without this the release build saw a keystore path of "", skipped the
+ * committed development key, and fell back to a throwaway debug key -- which is exactly the
+ * signature change that wipes app data on update.
+ */
 fun secret(env: String, prop: String): String? =
-    System.getenv(env) ?: keystoreProps?.getProperty(prop)
+    System.getenv(env)?.takeIf { it.isNotBlank() }
+        ?: keystoreProps?.getProperty(prop)?.takeIf { it.isNotBlank() }
 
 val devKeystore: File = rootProject.file("signing/dev-release.jks")
 
 val releaseKeystore: File? = (
-    System.getenv("RELEASE_KEYSTORE_PATH")?.let(::File)
-        ?: keystoreProps?.getProperty("storeFile")?.let(rootProject::file)
-        ?: devKeystore
-    ).takeIf { it.exists() }
+    secret("RELEASE_KEYSTORE_PATH", "storeFile")?.let(::File)?.takeIf { it.exists() }
+        ?: devKeystore.takeIf { it.exists() }
+    )
 
 val usingDevKeystore: Boolean = releaseKeystore == devKeystore
 

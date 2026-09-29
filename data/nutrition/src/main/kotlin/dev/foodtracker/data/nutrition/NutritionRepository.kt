@@ -54,7 +54,9 @@ class NutritionRepository @Inject constructor(
         if (!networkMonitor.isCurrentlyOnline()) {
             // Offline: a fuzzy cache hit is far better than no calories at all, but it still has
             // to survive matching, or we would log whatever happens to share a word.
-            val cached = foodDao.search(key, limit = CANDIDATE_POOL).map { it.toRecord() }
+            // Search on the name alone: the stored key embeds the brand, so passing the composite
+            // key into a LIKE would match nothing for exactly the branded foods it was meant to find.
+            val cached = foodDao.search(foodKeyOf(name), limit = CANDIDATE_POOL).map { it.toRecord() }
             return matcher.bestMatch(name, cached.toCandidates(), cookingMethod, preferBranded = !brand.isNullOrBlank())
         }
 
@@ -76,7 +78,7 @@ class NutritionRepository @Inject constructor(
         if (query.isBlank()) return emptyList()
 
         if (!networkMonitor.isCurrentlyOnline()) {
-            return foodDao.search(foodKeyOf(query, brand), limit).map { it.toRecord() }
+            return foodDao.search(foodKeyOf(query), limit).map { it.toRecord() }
         }
 
         val combinedQuery = listOfNotNull(brand, query).joinToString(" ")

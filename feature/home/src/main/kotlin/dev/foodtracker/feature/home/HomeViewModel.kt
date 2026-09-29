@@ -26,6 +26,14 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.roundToInt
 
+/** Outcome of a quick add. Success and failure are distinct so the UI can style them apart. */
+sealed interface QuickAddResult {
+    val message: String
+
+    data class Logged(override val message: String) : QuickAddResult
+    data class Failed(override val message: String) : QuickAddResult
+}
+
 data class QuickAddFood(
     val foodKey: String,
     val name: String,
@@ -41,7 +49,7 @@ data class HomeUiState(
     val consumedNutrients: Nutrients = Nutrients.ZERO,
     val meals: List<MealSummary> = emptyList(),
     val quickAdd: List<QuickAddFood> = emptyList(),
-    val justLogged: String? = null,
+    val quickAddResult: QuickAddResult? = null,
 ) {
     val consumedCalories: Int get() = consumedNutrients.calories.roundToInt()
     val remainingCalories: Int get() = calorieGoal - consumedCalories
@@ -64,7 +72,7 @@ class HomeViewModel @Inject constructor(
     private val timeProvider: TimeProvider,
 ) : ViewModel() {
 
-    private val justLogged = MutableStateFlow<String?>(null)
+    private val quickAddResult = MutableStateFlow<QuickAddResult?>(null)
 
     // Keyed on the date flow rather than a date read once at construction: leaving the app open
     // past midnight otherwise keeps yesterday's totals on screen under today's heading.
@@ -74,8 +82,8 @@ class HomeViewModel @Inject constructor(
             diaryRepository.totalsFor(today),
             diaryRepository.mealsFor(today),
             diaryRepository.favourites(limit = QUICK_ADD_COUNT),
-            justLogged,
-        ) { settings, totals, meals, favourites, logged ->
+            quickAddResult,
+        ) { settings, totals, meals, favourites, result ->
             HomeUiState(
                 calorieGoal = settings.dailyCalorieGoal,
                 proteinGoal = settings.proteinGoalGrams,
@@ -84,7 +92,7 @@ class HomeViewModel @Inject constructor(
                 consumedNutrients = totals,
                 meals = meals.map { it.toSummary() },
                 quickAdd = favourites.map { QuickAddFood(it.foodKey, it.name, it.brand, it.cachedFoodId) },
-                justLogged = logged,
+                quickAddResult = result,
             )
         }
     }.stateIn(
@@ -102,13 +110,23 @@ class HomeViewModel @Inject constructor(
      */
     fun quickAdd(food: QuickAddFood) {
         viewModelScope.launch {
-            val record = food.cachedFoodId?.let { nutritionRepository.cachedById(it) }
-                ?: nutritionRepository.resolve(food.name, food.brand)
-
-            if (record == null) {
-                justLogged.value = "Couldn't find ${food.name}. Open Add food to search for it."
-                return@launch
+            // A lookup or write can fail for reasons the user cannot do anything about; failing
+            // the tap is acceptable, crashing the app is not.
+            runCatching { quickAddInternal(food) }.onFailure {
+                quickAddResult.value = QuickAddResult.Failed("Couldn't log ${food.name}. Try again.")
             }
+        }
+    }
+
+    private suspend fun quickAddInternal(food: QuickAddFood) {
+        val record = food.cachedFoodId?.let { nutritionRepository.cachedById(it) }
+            ?: nutritionRepository.resolve(food.name, food.brand)
+
+        if (record == null) {
+            quickAddResult.value =
+                QuickAddResult.Failed("Couldn't find ${food.name}. Open Add food to search for it.")
+            return
+        }
 
             val grams = nutritionRepository.biasEstimate(
                 foodKey = food.foodKey,
@@ -116,7 +134,7 @@ class HomeViewModel @Inject constructor(
                 estimatedGrams = record.servingSizeGrams ?: DEFAULT_QUICK_ADD_GRAMS,
             )
 
-            diaryRepository.logMeal(
+            diaryRepository.addToMeal(
                 mealType = MealType.suggestedFor(timeProvider.now()),
                 items = listOf(
                     DetectedItem(
@@ -132,12 +150,11 @@ class HomeViewModel @Inject constructor(
                 ),
             )
 
-            justLogged.value = "Logged ${record.name}"
-        }
+        quickAddResult.value = QuickAddResult.Logged("Logged ${record.name}")
     }
 
-    fun dismissJustLogged() {
-        justLogged.value = null
+    fun dismissQuickAddResult() {
+        quickAddResult.value = null
     }
 }
 

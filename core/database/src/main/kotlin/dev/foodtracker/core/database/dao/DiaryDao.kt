@@ -51,6 +51,20 @@ interface DiaryDao {
     @Query("SELECT * FROM logged_meals WHERE id = :id")
     suspend fun mealById(id: String): MealWithItems?
 
+    /**
+     * The day's quick-add meal of this type, if any. Photographed meals are excluded on purpose:
+     * they are a distinct sitting with their own picture, and appending to one would show an apple
+     * under a photo of a curry.
+     */
+    @Query(
+        """
+        SELECT * FROM logged_meals
+        WHERE epochDay = :epochDay AND mealType = :mealType AND photoPath IS NULL
+        ORDER BY loggedAtMillis DESC LIMIT 1
+        """,
+    )
+    suspend fun latestPhotolessMealOfType(epochDay: Long, mealType: String): LoggedMealEntity?
+
     @Query(
         """
         SELECT m.epochDay AS epochDay,

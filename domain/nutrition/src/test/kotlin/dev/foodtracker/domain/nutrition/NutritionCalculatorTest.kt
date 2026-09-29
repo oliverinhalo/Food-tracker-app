@@ -71,4 +71,28 @@ class NutritionCalculatorTest {
     fun `a calorie-dense row with no macros at all is flagged`() {
         assertThat(NutritionCalculator.energyLooksConsistent(nutrients(400.0, 0.0, 0.0, 0.0))).isFalse()
     }
+
+    @Test
+    fun `a food with energy but no macro breakdown keeps its calories`() {
+        // Regression: reconciliation replaced the stated energy with the computed zero, so any
+        // Open Food Facts row carrying energy without macros -- very common -- logged as 0 kcal.
+        val energyOnly = nutrients(250.0, 0.0, 0.0, 0.0)
+
+        assertThat(NutritionCalculator.withReconciledEnergy(energyOnly).calories).isEqualTo(250.0)
+    }
+
+    @Test
+    fun `a row with macros is still corrected`() {
+        val kilojoulesInTheCalorieField = nutrients(2228.0, 6.3, 57.5, 30.9)
+
+        assertThat(NutritionCalculator.withReconciledEnergy(kilojoulesInTheCalorieField).calories)
+            .isWithin(2.0).of(533.0)
+    }
+
+    @Test
+    fun `a genuinely zero-calorie food stays at zero`() {
+        val water = nutrients(0.0, 0.0, 0.0, 0.0)
+
+        assertThat(NutritionCalculator.withReconciledEnergy(water).calories).isEqualTo(0.0)
+    }
 }

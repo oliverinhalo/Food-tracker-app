@@ -88,6 +88,26 @@ class DiaryRepository @Inject constructor(
         mealId
     }
 
+    /**
+     * Adds items to today's meal of this type, creating it only if there is not one yet.
+     *
+     * Quick-adding three things in an afternoon should not produce three separate "Snack" rows on
+     * Home; they are one snack. Logging a photographed plate still creates its own meal, because
+     * that is a distinct sitting with its own picture.
+     */
+    suspend fun addToMeal(
+        mealType: MealType,
+        items: List<DetectedItem>,
+        date: LocalDate = timeProvider.today(),
+    ): String = withContext(ioDispatcher) {
+        val existing = diaryDao.latestPhotolessMealOfType(date.toEpochDay(), mealType.name)
+            ?: return@withContext logMeal(mealType = mealType, items = items, date = date)
+
+        diaryDao.insertItems(items.map { it.toRow(existing.id) })
+        items.forEach { item -> rememberAsFavourite(item.toRow(existing.id)) }
+        existing.id
+    }
+
     suspend fun deleteMeal(mealId: String) = withContext(ioDispatcher) {
         // A diary photo is referenced by exactly one meal, so it goes with it. Deleting the file
         // here rather than calling back into the recognition layer keeps the two independent.
