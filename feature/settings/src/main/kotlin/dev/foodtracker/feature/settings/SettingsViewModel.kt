@@ -11,12 +11,14 @@ import dev.foodtracker.core.datastore.UnitSystem
 import dev.foodtracker.core.datastore.UserSettings
 import dev.foodtracker.data.diary.DiaryBackup
 import dev.foodtracker.data.diary.ImportResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -152,7 +154,9 @@ class SettingsViewModel @Inject constructor(
         _dataTask.value = DataTaskState.Working
         _dataTask.value = runCatching {
             val payload = diaryBackup.export()
-            write(payload)
+            // The caller's writer touches a content URI, which is disk or worse; the launch above
+            // runs on the main thread, so it cannot happen there.
+            withContext(Dispatchers.IO) { write(payload) }
             DataTaskState.Done("Diary exported.")
         }.getOrElse { DataTaskState.Failed("Couldn't write that file.") }
     }
@@ -160,7 +164,8 @@ class SettingsViewModel @Inject constructor(
     fun import(read: () -> String?) = viewModelScope.launch {
         _dataTask.value = DataTaskState.Working
         _dataTask.value = runCatching {
-            val contents = read() ?: return@runCatching DataTaskState.Failed("Couldn't read that file.")
+            val contents = withContext(Dispatchers.IO) { read() }
+                ?: return@runCatching DataTaskState.Failed("Couldn't read that file.")
             when (val result = diaryBackup.import(contents)) {
                 is ImportResult.Imported ->
                     DataTaskState.Done("Restored ${result.meals} meal${if (result.meals == 1) "" else "s"}.")
