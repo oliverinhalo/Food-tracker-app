@@ -8,6 +8,7 @@ import dev.foodtracker.core.datastore.SettingsRepository
 import dev.foodtracker.core.model.DegradeReason
 import dev.foodtracker.core.model.DetectedItem
 import dev.foodtracker.core.model.MealType
+import dev.foodtracker.core.datastore.UnitSystem
 import dev.foodtracker.core.model.MeasurementUnit
 import dev.foodtracker.core.model.Portion
 import dev.foodtracker.core.model.RecognitionEvent
@@ -20,6 +21,8 @@ import dev.foodtracker.data.nutrition.NutritionRepository
 import dev.foodtracker.data.nutrition.ResolveNutrition
 import dev.foodtracker.domain.nutrition.AmbiguousFoods
 import dev.foodtracker.domain.nutrition.FoodCategory
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import dev.foodtracker.domain.nutrition.UnitConverter
 import dev.foodtracker.domain.nutrition.foodKeyOf
 import dev.foodtracker.domain.recognition.RecognitionConfig
@@ -50,6 +53,48 @@ class ResultsViewModel @Inject constructor(
     val uiState: StateFlow<ResultsUiState> = _uiState.asStateFlow()
 
     private val converter = UnitConverter()
+
+    init {
+        // Kept on the state rather than read per edit, so the picker and every portion agree even
+        // while the settings screen is open behind the sheet.
+        viewModelScope.launch {
+            settingsRepository.settings
+                .map { it.unitSystem == UnitSystem.IMPERIAL }
+                .distinctUntilChanged()
+                .collect { imperial ->
+                    _uiState.update { state ->
+                        state.copy(
+                            imperialUnits = imperial,
+                            items = state.items.inDisplayMassUnit(imperial),
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * Re-expresses plain masses in the unit the user reads in.
+     *
+     * Only GRAM and OUNCE are touched: a portion the recogniser described as "1 cup" or "2 pieces"
+     * says more than either, and converting it to 168 g would throw that away.
+     */
+    private fun List<DetectedItem>.inDisplayMassUnit(imperial: Boolean): List<DetectedItem> {
+        val target = MeasurementUnit.massUnitFor(imperial)
+        return map { item ->
+            if (!item.portion.unit.isAbsoluteMass || item.portion.unit == target) {
+                item
+            } else {
+                item.copy(
+                    portion = converter.convert(
+                        item.portion,
+                        target,
+                        FoodCategory.profileFor(item.name),
+                        foodKeyOf(item.name, item.brand),
+                    ),
+                )
+            }
+        }
+    }
 
     private var analysisJob: Job? = null
     private var captureId: String? = null
@@ -159,7 +204,13 @@ class ResultsViewModel @Inject constructor(
             }
 
             orchestrator.recognize(captureId, image, config).collect { event ->
-                _uiState.update { state -> state.reduce(event).copy(stage = AnalysisStage.IDENTIFYING) }
+                _uiState.update { state ->
+                    val reduced = state.reduce(event)
+                    reduced.copy(
+                        stage = AnalysisStage.IDENTIFYING,
+                        items = reduced.items.inDisplayMassUnit(state.imperialUnits),
+                    )
+                }
                 // Nutrition lookup runs after each pass rather than only at the end, so provisional
                 // items show calories instead of a skeleton while the cloud pass is still running.
                 resolveNutritionForCurrentItems()

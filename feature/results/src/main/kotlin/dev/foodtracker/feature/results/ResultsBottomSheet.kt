@@ -400,7 +400,7 @@ private fun ItemList(state: ResultsUiState, onAction: (ResultsAction) -> Unit) {
             SwipeToDeleteItem(
                 onDelete = { onAction(ResultsAction.RemoveItem(item.id)) },
             ) {
-                FoodItemCard(item = item, onAction = onAction)
+                FoodItemCard(item = item, onAction = onAction, imperial = state.imperialUnits)
             }
         }
 

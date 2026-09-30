@@ -46,6 +46,7 @@ internal fun FoodItemCard(
     onAction: (ResultsAction) -> Unit,
     modifier: Modifier = Modifier,
     initiallyExpanded: Boolean = false,
+    imperial: Boolean = false,
 ) {
     var expanded by remember(item.id) { mutableStateOf(initiallyExpanded) }
     val nutrients = item.nutrients
@@ -120,6 +121,7 @@ internal fun FoodItemCard(
                         unit = item.portion.unit,
                         onAmountChange = { onAction(ResultsAction.ChangeQuantity(item.id, it)) },
                         onUnitChange = { onAction(ResultsAction.ChangeUnit(item.id, it)) },
+                        imperial = imperial,
                     )
 
                     TextButton(

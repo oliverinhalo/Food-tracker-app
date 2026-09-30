@@ -45,6 +45,8 @@ data class ResultsUiState(
     val recentlyRemoved: RemovedItem? = null,
     val isLogging: Boolean = false,
     val loggedSuccessfully: Boolean = false,
+    /** Whether portions are shown in ounces rather than grams. Mass is stored in grams regardless. */
+    val imperialUnits: Boolean = false,
 ) {
     /** Live totals for the sheet header. Items still awaiting nutrition contribute nothing. */
     val totals: Nutrients

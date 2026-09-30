@@ -47,6 +47,7 @@ internal fun QuantityEditor(
     onAmountChange: (Double) -> Unit,
     onUnitChange: (MeasurementUnit) -> Unit,
     modifier: Modifier = Modifier,
+    imperial: Boolean = false,
 ) {
     val haptics = rememberHaptics()
     val step = PortionControls.stepFor(unit)
@@ -95,6 +96,7 @@ internal fun QuantityEditor(
             UnitPicker(
                 itemId = itemId,
                 unit = unit,
+                imperial = imperial,
                 onUnitChange = onUnitChange,
             )
         }
@@ -121,6 +123,7 @@ internal fun QuantityEditor(
 private fun UnitPicker(
     itemId: String,
     unit: MeasurementUnit,
+    imperial: Boolean,
     onUnitChange: (MeasurementUnit) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -135,7 +138,7 @@ private fun UnitPicker(
     }
 
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-        MeasurementUnit.pickerOrder.forEach { candidate ->
+        MeasurementUnit.pickerOrderFor(imperial).forEach { candidate ->
             DropdownMenuItem(
                 text = { Text(candidate.abbreviation) },
                 onClick = {
