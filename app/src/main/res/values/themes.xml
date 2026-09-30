@@ -8,4 +8,15 @@
     <style name="Theme.FoodTracker" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@android:color/white</item>
     </style>
+
+    <!--
+      The launch theme. It shows the app's own icon on its own colour instead of a blank window,
+      and hands over to Theme.FoodTracker once the stored theme has been read, which is what stops
+      a dark-theme user seeing a white frame first.
+    -->
+    <style name="Theme.FoodTracker.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.FoodTracker</item>
+    </style>
 </resources>

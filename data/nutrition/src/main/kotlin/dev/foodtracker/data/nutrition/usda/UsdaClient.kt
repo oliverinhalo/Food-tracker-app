@@ -40,8 +40,6 @@ class UsdaClient @Inject constructor(
      */
     private val apiKey: String? get() = secureKeyStore.usdaApiKey() ?: BuildConfig.USDA_API_KEY.takeIf { it.isNotBlank() }
 
-    val isConfigured: Boolean get() = apiKey != null
-
     suspend fun search(query: String, limit: Int = 10): List<FoodRecord> = withContext(ioDispatcher) {
         val key = apiKey ?: return@withContext emptyList()
         if (query.isBlank()) return@withContext emptyList()

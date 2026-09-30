@@ -5,9 +5,6 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,6 +18,9 @@ import javax.inject.Singleton
 class SecureKeyStore @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
+    // Lazy, and left lazy: building the master key generates a Keystore entry on first run and
+    // reads an encrypted file on every later one. Touching it from the constructor would put that
+    // on the main thread at startup, for an app that has no key to read until Settings is opened.
     private val prefs: SharedPreferences by lazy {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -33,15 +33,6 @@ class SecureKeyStore @Inject constructor(
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
         )
-    }
-
-    private val _keyPresent = MutableStateFlow(false)
-
-    /** Cheap presence signal so callers can branch without decrypting on every recomposition. */
-    val keyPresent: StateFlow<Boolean> = _keyPresent.asStateFlow()
-
-    init {
-        _keyPresent.value = !geminiApiKey().isNullOrBlank()
     }
 
     fun geminiApiKey(): String? = prefs.getString(KEY_GEMINI, null)?.takeIf { it.isNotBlank() }
@@ -63,7 +54,6 @@ class SecureKeyStore @Inject constructor(
         prefs.edit().apply {
             if (key.isNullOrBlank()) remove(KEY_GEMINI) else putString(KEY_GEMINI, key.trim())
         }.apply()
-        _keyPresent.value = !key.isNullOrBlank()
     }
 
     private companion object {

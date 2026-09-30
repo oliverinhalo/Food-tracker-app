@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.foodtracker.core.datastore.GeminiModelChoice
 import dev.foodtracker.core.datastore.ImageQuality
-import dev.foodtracker.core.datastore.SecureKeyStore
 import dev.foodtracker.core.datastore.SettingsRepository
 import dev.foodtracker.core.datastore.ThemeMode
 import dev.foodtracker.core.datastore.UnitSystem
@@ -36,12 +35,13 @@ sealed interface DataTaskState {
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
-    private val secureKeyStore: SecureKeyStore,
     private val diaryBackup: DiaryBackup,
 ) : ViewModel() {
 
     private val _dataTask = MutableStateFlow<DataTaskState>(DataTaskState.Idle)
     val dataTask: StateFlow<DataTaskState> = _dataTask.asStateFlow()
+
+    private val _revealedGeminiKey = MutableStateFlow<String?>(null)
 
     /**
      * The saved key, so it can be copied out before a reinstall.
@@ -49,10 +49,30 @@ class SettingsViewModel @Inject constructor(
      * Android wipes app data when an app is uninstalled, and a key stored behind the keystore
      * cannot be restored from a backup even if one existed. Being able to read your own key back
      * is the difference between a reinstall costing a tap and costing a trip to Google AI Studio.
+     *
+     * Read asynchronously: decrypting it touches the Keystore, which is not something to do on the
+     * thread handling the tap.
      */
-    fun revealGeminiKey(): String? = secureKeyStore.geminiApiKey()
+    val revealedGeminiKey: StateFlow<String?> = _revealedGeminiKey.asStateFlow()
 
-    fun revealUsdaKey(): String? = secureKeyStore.usdaApiKey()
+    private val _revealedUsdaKey = MutableStateFlow<String?>(null)
+    val revealedUsdaKey: StateFlow<String?> = _revealedUsdaKey.asStateFlow()
+
+    fun revealGeminiKey() = viewModelScope.launch {
+        _revealedGeminiKey.value = settingsRepository.revealGeminiApiKey()
+    }
+
+    fun hideGeminiKey() {
+        _revealedGeminiKey.value = null
+    }
+
+    fun revealUsdaKey() = viewModelScope.launch {
+        _revealedUsdaKey.value = settingsRepository.revealUsdaApiKey()
+    }
+
+    fun hideUsdaKey() {
+        _revealedUsdaKey.value = null
+    }
 
     val uiState: StateFlow<UserSettings> = settingsRepository.settings
         .stateIn(
@@ -63,15 +83,24 @@ class SettingsViewModel @Inject constructor(
 
     fun setApiKey(key: String) = viewModelScope.launch {
         settingsRepository.setGeminiApiKey(key.trim().takeIf { it.isNotBlank() })
+        // A key on screen after it has been replaced is the old one, which is worse than none.
+        _revealedGeminiKey.value = null
     }
 
-    fun clearApiKey() = viewModelScope.launch { settingsRepository.setGeminiApiKey(null) }
+    fun clearApiKey() = viewModelScope.launch {
+        settingsRepository.setGeminiApiKey(null)
+        _revealedGeminiKey.value = null
+    }
 
     fun setUsdaKey(key: String) = viewModelScope.launch {
         settingsRepository.setUsdaApiKey(key.trim().takeIf { it.isNotBlank() })
+        _revealedUsdaKey.value = null
     }
 
-    fun clearUsdaKey() = viewModelScope.launch { settingsRepository.setUsdaApiKey(null) }
+    fun clearUsdaKey() = viewModelScope.launch {
+        settingsRepository.setUsdaApiKey(null)
+        _revealedUsdaKey.value = null
+    }
 
     fun setCalorieGoal(goal: Int) = viewModelScope.launch {
         settingsRepository.setDailyCalorieGoal(goal)
@@ -143,6 +172,8 @@ class SettingsViewModel @Inject constructor(
     /** Erases the diary, the caches, what was learned, the photos, and both API keys. */
     fun deleteEverything() = viewModelScope.launch {
         _dataTask.value = DataTaskState.Working
+        _revealedGeminiKey.value = null
+        _revealedUsdaKey.value = null
         _dataTask.value = runCatching {
             diaryBackup.deleteEverything()
             settingsRepository.clearAll()

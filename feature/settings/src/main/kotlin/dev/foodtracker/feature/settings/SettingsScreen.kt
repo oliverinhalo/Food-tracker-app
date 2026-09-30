@@ -94,6 +94,8 @@ fun SettingsRoute(
 ) {
     val settings by viewModel.uiState.collectAsStateWithLifecycle()
     val dataTask by viewModel.dataTask.collectAsStateWithLifecycle()
+    val revealedGeminiKey by viewModel.revealedGeminiKey.collectAsStateWithLifecycle()
+    val revealedUsdaKey by viewModel.revealedUsdaKey.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // The system picker owns the file, not the app: no storage permission is asked for, and the
@@ -126,8 +128,12 @@ fun SettingsRoute(
         onClearApiKey = viewModel::clearApiKey,
         onSaveUsdaKey = viewModel::setUsdaKey,
         onClearUsdaKey = viewModel::clearUsdaKey,
-        onRevealGeminiKey = viewModel::revealGeminiKey,
-        onRevealUsdaKey = viewModel::revealUsdaKey,
+        revealedGeminiKey = revealedGeminiKey,
+        revealedUsdaKey = revealedUsdaKey,
+        onRevealGeminiKey = { viewModel.revealGeminiKey() },
+        onHideGeminiKey = viewModel::hideGeminiKey,
+        onRevealUsdaKey = { viewModel.revealUsdaKey() },
+        onHideUsdaKey = viewModel::hideUsdaKey,
         onCalorieGoalChange = viewModel::setCalorieGoal,
         onMacroGoalsChange = viewModel::setMacroGoals,
         onUnitSystemChange = viewModel::setUnitSystem,
@@ -160,8 +166,12 @@ internal fun SettingsScreen(
     onClearApiKey: () -> Unit,
     onSaveUsdaKey: (String) -> Unit,
     onClearUsdaKey: () -> Unit,
-    onRevealGeminiKey: () -> String?,
-    onRevealUsdaKey: () -> String?,
+    revealedGeminiKey: String?,
+    revealedUsdaKey: String?,
+    onRevealGeminiKey: () -> Unit,
+    onHideGeminiKey: () -> Unit,
+    onRevealUsdaKey: () -> Unit,
+    onHideUsdaKey: () -> Unit,
     onCalorieGoalChange: (Int) -> Unit,
     onMacroGoalsChange: (Int, Int, Int) -> Unit,
     onUnitSystemChange: (UnitSystem) -> Unit,
@@ -196,9 +206,11 @@ internal fun SettingsScreen(
             },
             hasKey = settings.hasApiKey,
             testTag = SettingsTestTags.API_KEY_FIELD,
+            revealed = revealedGeminiKey,
             onSave = onSaveApiKey,
             onClear = onClearApiKey,
             onReveal = onRevealGeminiKey,
+            onHide = onHideGeminiKey,
         )
 
         KeySection(
@@ -211,9 +223,11 @@ internal fun SettingsScreen(
             },
             hasKey = settings.hasUsdaKey,
             testTag = SettingsTestTags.USDA_KEY_FIELD,
+            revealed = revealedUsdaKey,
             onSave = onSaveUsdaKey,
             onClear = onClearUsdaKey,
             onReveal = onRevealUsdaKey,
+            onHide = onHideUsdaKey,
         )
 
         GoalSection(
@@ -539,13 +553,14 @@ private fun KeySection(
     explanation: String,
     hasKey: Boolean,
     testTag: String,
+    revealed: String?,
     onSave: (String) -> Unit,
     onClear: () -> Unit,
-    onReveal: () -> String?,
+    onReveal: () -> Unit,
+    onHide: () -> Unit,
 ) {
     var draft by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
-    var revealed by remember { mutableStateOf<String?>(null) }
     val clipboard = LocalClipboardManager.current
 
     Card {
@@ -593,7 +608,7 @@ private fun KeySection(
                 }
                 if (hasKey) {
                     TextButton(
-                        onClick = { revealed = onReveal() },
+                        onClick = onReveal,
                         modifier = Modifier.testTag(SettingsTestTags.REVEAL_KEY),
                     ) {
                         Text("Show saved key")
@@ -615,7 +630,7 @@ private fun KeySection(
                         TextButton(onClick = { clipboard.setText(AnnotatedString(key)) }) {
                             Text("Copy")
                         }
-                        TextButton(onClick = { revealed = null }) { Text("Hide") }
+                        TextButton(onClick = onHide) { Text("Hide") }
                     }
                 }
             }

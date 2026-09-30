@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -35,7 +36,6 @@ import dev.foodtracker.core.datastore.ThemeMode
 import dev.foodtracker.core.ui.theme.FoodTrackerTheme
 import dev.foodtracker.feature.results.ResultsBottomSheet
 import dev.foodtracker.feature.results.ResultsViewModel
-import dev.foodtracker.feature.settings.SettingsViewModel
 import dev.foodtracker.navigation.CaptureRouteKey
 import dev.foodtracker.navigation.FoodTrackerNavHost
 import dev.foodtracker.navigation.HistoryRouteKey
@@ -46,21 +46,30 @@ import dev.foodtracker.navigation.SettingsRouteKey
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Held until the stored theme has been read, so someone who chose dark never gets a white
+        // frame in the face first. It is one DataStore read, so the wait is imperceptible.
+        val splash = installSplashScreen()
+        var themeReady = false
+        splash.setKeepOnScreenCondition { !themeReady }
+
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         setContent {
-            val settingsViewModel: SettingsViewModel = hiltViewModel()
-            val settings by settingsViewModel.uiState.collectAsStateWithLifecycle()
+            val themeViewModel: AppThemeViewModel = hiltViewModel()
+            val theme by themeViewModel.theme.collectAsStateWithLifecycle()
+
+            themeReady = theme != null
+            val resolved = theme ?: AppTheme()
 
             FoodTrackerTheme(
-                darkTheme = when (settings.themeMode) {
+                darkTheme = when (resolved.themeMode) {
                     ThemeMode.SYSTEM -> isSystemInDarkTheme()
                     ThemeMode.LIGHT -> false
                     ThemeMode.DARK -> true
                 },
-                dynamicColor = settings.dynamicColor,
-                hapticsEnabled = settings.hapticsEnabled,
+                dynamicColor = resolved.dynamicColor,
+                hapticsEnabled = resolved.hapticsEnabled,
             ) {
                 FoodTrackerApp()
             }

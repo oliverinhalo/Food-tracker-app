@@ -9,8 +9,11 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.foodtracker.core.common.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,6 +28,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 class SettingsRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val secureKeyStore: SecureKeyStore,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     private object Keys {
         val CALORIE_GOAL = intPreferencesKey("daily_calorie_goal")
@@ -76,11 +80,21 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setDynamicColor(enabled: Boolean) = edit { it[Keys.DYNAMIC_COLOR] = enabled }
 
-    /** Writes the key to encrypted storage and mirrors only its presence into settings. */
+    /**
+     * Writes the key to encrypted storage and mirrors only its presence into settings.
+     *
+     * On the IO dispatcher because the first touch of the encrypted store builds a Keystore-backed
+     * master key, which is far too slow to do on the thread that is drawing.
+     */
     suspend fun setGeminiApiKey(key: String?) {
-        secureKeyStore.setGeminiApiKey(key)
+        withContext(ioDispatcher) { secureKeyStore.setGeminiApiKey(key) }
         edit { it[Keys.API_KEY_PRESENT] = !key.isNullOrBlank() }
     }
+
+    /** The saved keys, read off the main thread, for showing before a reinstall. */
+    suspend fun revealGeminiApiKey(): String? = withContext(ioDispatcher) { secureKeyStore.geminiApiKey() }
+
+    suspend fun revealUsdaApiKey(): String? = withContext(ioDispatcher) { secureKeyStore.usdaApiKey() }
 
     suspend fun setThemeMode(value: ThemeMode) = edit { it[Keys.THEME_MODE] = value.name }
 
@@ -94,13 +108,15 @@ class SettingsRepository @Inject constructor(
 
     /** Wipes every preference. Used by "delete all data", which must leave nothing behind. */
     suspend fun clearAll() {
-        secureKeyStore.setGeminiApiKey(null)
-        secureKeyStore.setUsdaApiKey(null)
+        withContext(ioDispatcher) {
+            secureKeyStore.setGeminiApiKey(null)
+            secureKeyStore.setUsdaApiKey(null)
+        }
         context.settingsDataStore.edit { it.clear() }
     }
 
     suspend fun setUsdaApiKey(key: String?) {
-        secureKeyStore.setUsdaApiKey(key)
+        withContext(ioDispatcher) { secureKeyStore.setUsdaApiKey(key) }
         edit { it[Keys.USDA_KEY_PRESENT] = !key.isNullOrBlank() }
     }
 
