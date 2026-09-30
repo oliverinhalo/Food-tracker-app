@@ -1,13 +1,16 @@
 # Food Tracker
 
 A native Android calorie tracker: photograph a meal, and the app identifies each food item,
-estimates portions, and shows calories and macros — with an on-device first pass so results appear
-instantly, and a cloud pass that refines them.
+estimates portions, and shows calories and macros.
 
-> **Status:** the full loop works — scan or pick a photo, correct anything the AI got wrong, log
-> it, and see today and your history. Barcode scanning, manual entry, recents and offline
-> re-analysis are in. The on-device model is deliberately not shipped; see
-> [The on-device pass](#the-on-device-pass).
+> **Status:** 1.0.0 — the full loop works, and everything in Settings does something. Scan or pick
+> a photo, correct anything the AI got wrong, log it, and see today and your history. Barcode
+> scanning, manual entry, recents, offline re-analysis, export/import and a full erase are in.
+> The pipeline is cloud-only: an on-device first pass was built and then dropped after it was
+> measured, because it added seventy megabytes to a three-megabyte app for accuracy that did not
+> justify it. See [The on-device pass](#the-on-device-pass).
+>
+> [`CHANGELOG.md`](CHANGELOG.md) is what changed and when.
 
 ## Getting the app
 
@@ -15,8 +18,9 @@ Every release on the [Releases page](../../releases) has an installable APK atta
 `food-tracker-<version>.apk` on your phone and open it; you'll need to allow installing from
 unknown sources the first time.
 
-Pushes to the repository's default branch refresh a rolling `latest` pre-release, and tagging
-`vX.Y.Z` cuts a proper versioned release. You can also run the **Release** workflow by hand from
+Pushes to `main` refresh a rolling `latest` pre-release, and tagging `vX.Y.Z` cuts a proper
+versioned release whose notes come from that version's section of `CHANGELOG.md`. A versioned
+release also carries an `.aab`, which is the Play Store upload and cannot be installed directly. You can also run the **Release** workflow by hand from
 the Actions tab and give it any version you like.
 
 ## Building it yourself
