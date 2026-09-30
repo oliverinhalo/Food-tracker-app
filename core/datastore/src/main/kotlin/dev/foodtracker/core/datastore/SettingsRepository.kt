@@ -106,6 +106,22 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setReanalyseQueuedPhotos(enabled: Boolean) = edit { it[Keys.REANALYSE] = enabled }
 
+    /**
+     * Brings the "a key is saved" flags back in line with what is actually stored.
+     *
+     * The flags live in DataStore, which Auto Backup restores; the keys live behind the device's
+     * own Keystore, which it cannot. After a restore onto a new phone, Settings would otherwise
+     * say a key was saved while every scan failed for want of one.
+     */
+    suspend fun reconcileKeyPresence() = withContext(ioDispatcher) {
+        val gemini = !secureKeyStore.geminiApiKey().isNullOrBlank()
+        val usda = !secureKeyStore.usdaApiKey().isNullOrBlank()
+        edit {
+            it[Keys.API_KEY_PRESENT] = gemini
+            it[Keys.USDA_KEY_PRESENT] = usda
+        }
+    }
+
     /** Wipes every preference. Used by "delete all data", which must leave nothing behind. */
     suspend fun clearAll() {
         withContext(ioDispatcher) {

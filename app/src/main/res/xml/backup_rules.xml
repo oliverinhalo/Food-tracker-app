@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 11 and below, where the rules are a flat list rather than split by destination. Listing
+  includes makes everything else excluded, which is the safer direction: a file added later has to
+  be named here before it can leave the device.
+
+  Not listed, deliberately: meal photos, which would blow through Auto Backup's 25 MB quota and
+  take the numbers with them, and secure_keys.xml, which is bound to this device's keystore and
+  would restore as undecryptable bytes.
+-->
+<full-backup-content>
+    <include domain="database" path="food-tracker.db" />
+    <include domain="database" path="food-tracker.db-wal" />
+    <include domain="database" path="food-tracker.db-shm" />
+    <include domain="file" path="datastore/" />
+</full-backup-content>

@@ -224,6 +224,12 @@ Settings → **Your data** covers the three things that follow from that:
 - **Delete all my data** erases every meal, photo, cached food, learned portion, preference and
   stored key, behind a confirmation. This is the deletion path Play's user-data policy requires.
 
+Android's own Auto Backup is switched on for the diary and the settings, so a reinstall or a new
+phone gets the meals back without anyone having to remember to export. Photos are excluded to stay
+inside Auto Backup's 25 MB quota, and the API keys are excluded because they are tied to the
+device's keystore and would restore as undecryptable bytes. The app reconciles the "a key is
+saved" flag on launch for exactly that reason: a restored install must not claim a key it has lost.
+
 [`PRIVACY.md`](PRIVACY.md) is the policy the app links to from Settings → About.
 [`docs/play-store.md`](docs/play-store.md) has the release build, the upload-key setup and the
 data-safety answers.

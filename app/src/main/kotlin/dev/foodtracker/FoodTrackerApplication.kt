@@ -6,6 +6,10 @@ import android.os.StrictMode
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import dev.foodtracker.core.common.di.ApplicationScope
+import dev.foodtracker.core.datastore.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -19,9 +23,21 @@ class FoodTrackerApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
+    @Inject
+    @ApplicationScope
+    lateinit var applicationScope: CoroutineScope
+
     override fun onCreate() {
         super.onCreate()
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) enableStrictMode()
+
+        // Auto Backup restores the preferences but cannot restore a Keystore-bound secret, so a
+        // restored install can believe it has a key it does not have. Off the main thread, since
+        // it opens the encrypted store.
+        applicationScope.launch { settingsRepository.reconcileKeyPresence() }
     }
 
     /**

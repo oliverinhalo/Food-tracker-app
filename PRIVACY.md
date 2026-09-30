@@ -15,8 +15,15 @@ Everything you log stays in the app's private storage on your phone:
 - a local cache of food nutrition data, so repeated lookups are instant and work offline
 - the corrections you make to portion estimates, which the app uses to bias future estimates
 
-None of this is uploaded anywhere, and none of it is sent to the developer. There are no analytics,
-no crash reporting, no advertising identifiers and no third-party trackers in the app.
+None of this is sent to the developer. There are no analytics, no crash reporting, no advertising
+identifiers and no third-party trackers in the app.
+
+**Android Auto Backup** is switched on for your meals, foods and settings, so that reinstalling the
+app or setting up a new phone does not lose your diary. That backup goes to *your own* Google
+account, is governed by Google's backup terms, and is not visible to the developer. Your meal
+photos are excluded from it, and so are your API keys, which are tied to the device they were
+entered on and cannot be restored anywhere else. You can turn the whole thing off in
+Android's Settings → Google → Backup.
 
 ## Your API keys
 
@@ -51,7 +58,9 @@ nothing from anyone.
 
 Settings → **Your data** → **Delete all my data** erases every meal, photo, cached food, learned
 portion and stored API key from the device. Uninstalling the app also removes all of it. Because
-nothing is held on a server, there is nothing else to request the deletion of.
+nothing is held on a server by the developer, there is nothing else to request the deletion of. A
+copy may remain in your own Google account's backup; Android's Settings → Google → Backup is where
+you delete that.
 
 You can take a copy with you first: Settings → **Your data** → **Export** writes your diary to a
 JSON file you choose the location of. Exports contain your meals and their numbers; they

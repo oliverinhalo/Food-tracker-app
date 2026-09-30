@@ -46,6 +46,10 @@ Answers to the console's data safety form, all of them derived from [`PRIVACY.md
 - **Personal info, financial info, location, contacts, messages, files, device IDs:** none.
 - **Is all user data encrypted in transit?** Yes — HTTPS only, enforced by
   `network_security_config.xml`.
+- **Android Auto Backup** is enabled for the diary and settings (not photos, not keys). It writes
+  to the user's own Google account, not to any developer-controlled server, so it is not
+  developer data collection and does not change the answers above. It is disclosed in
+  `PRIVACY.md` regardless.
 - **Do you provide a way for users to request that their data is deleted?** Yes —
   Settings → Your data → Delete all my data, and uninstalling.
 

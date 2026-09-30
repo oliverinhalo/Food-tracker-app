@@ -1,11 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 and above. What a reinstall or a new phone gets back, and what it does not.
+
+  The diary is the whole point of backing anything up: someone who reinstalls should find their
+  meals where they left them. Listing includes makes everything else excluded, so a file added
+  later has to be named here before it can leave the device.
+-->
 <data-extraction-rules>
+    <!--
+      Photos are left out: Auto Backup has a 25 MB quota, and a few weeks of meal photos would
+      blow through it and take the numbers with them. secure_keys.xml is left out because it is
+      bound to this device's keystore and would restore as undecryptable bytes.
+    -->
     <cloud-backup>
-        <!-- The encrypted key store is bound to this device's keystore; backing it up would only
-             restore undecryptable bytes onto a new device. -->
-        <exclude domain="sharedpref" path="secure_keys.xml" />
+        <include domain="database" path="food-tracker.db" />
+        <include domain="database" path="food-tracker.db-wal" />
+        <include domain="database" path="food-tracker.db-shm" />
+        <include domain="file" path="datastore/" />
     </cloud-backup>
+
+    <!--
+      A direct phone-to-phone transfer has no size quota and no cloud in the middle, so the photos
+      come too. The key store still cannot travel: its master key never leaves the old device.
+    -->
     <device-transfer>
-        <exclude domain="sharedpref" path="secure_keys.xml" />
+        <include domain="database" path="food-tracker.db" />
+        <include domain="database" path="food-tracker.db-wal" />
+        <include domain="database" path="food-tracker.db-shm" />
+        <include domain="file" path="datastore/" />
+        <include domain="file" path="meal-photos/" />
     </device-transfer>
 </data-extraction-rules>
