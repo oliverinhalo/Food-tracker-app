@@ -58,6 +58,7 @@ import dev.foodtracker.core.ui.component.rememberHaptics
 object CaptureTestTags {
     const val SHUTTER = "capture_shutter"
     const val PREVIEW = "capture_preview"
+    const val NO_CAMERA_STATE = "capture_no_camera_state"
     const val PERMISSION_STATE = "capture_permission_state"
     const val GALLERY = "capture_gallery"
 }
@@ -95,6 +96,7 @@ internal fun CaptureScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val hasCamera = remember { context.hasCamera() }
     var hasPermission by remember { mutableStateOf(context.hasCameraPermission()) }
     var permissionRequested by remember { mutableStateOf(false) }
 
@@ -118,11 +120,15 @@ internal fun CaptureScreen(
     }
 
     LaunchedEffect(Unit) {
-        if (!hasPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
+        if (hasCamera && !hasPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
-        if (hasPermission) {
+        if (!hasCamera) {
+            // A tablet or Chromebook without a camera. Asking it for permission it can never use
+            // would be a dead end; the gallery is the whole feature here.
+            NoCameraState(onPickFromGallery = ::pickFromGallery)
+        } else if (hasPermission) {
             CameraPreview(
                 state = state,
                 onFrameCaptured = onFrameCaptured,
@@ -223,6 +229,24 @@ private fun BoxScope.CameraPreview(
 }
 
 @Composable
+private fun BoxScope.NoCameraState(onPickFromGallery: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .align(Alignment.Center)
+            .testTag(CaptureTestTags.NO_CAMERA_STATE),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        MessageState(
+            icon = Icons.Default.NoPhotography,
+            title = "This device has no camera",
+            body = "You can still scan a meal from a photo you already have.",
+            actionLabel = "Choose from gallery",
+            onAction = onPickFromGallery,
+        )
+    }
+}
+
+@Composable
 private fun BoxScope.PermissionState(
     permanentlyDenied: Boolean,
     onRequest: () -> Unit,
@@ -252,6 +276,9 @@ private fun BoxScope.PermissionState(
         }
     }
 }
+
+private fun Context.hasCamera(): Boolean =
+    packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
 
 private fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
