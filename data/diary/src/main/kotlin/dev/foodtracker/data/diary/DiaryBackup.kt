@@ -145,18 +145,17 @@ class DiaryBackup @Inject constructor(
             )
         }
 
-        parsed.meals.forEach { meal ->
-            // A backup restored twice should not double the day's calories, so ids are preserved
-            // and a re-import replaces rather than appends.
-            diaryDao.replaceMeal(
-                meal = LoggedMealEntity(
+        // A backup restored twice should not double the day's calories, so ids are preserved
+        // and a re-import replaces rather than appends.
+        diaryDao.replaceMeals(
+            parsed.meals.map { meal ->
+                LoggedMealEntity(
                     id = meal.id,
                     mealType = meal.mealType,
                     epochDay = meal.epochDay,
                     loggedAtMillis = meal.loggedAtMillis,
                     photoPath = null,
-                ),
-                items = meal.items.map { item ->
+                ) to meal.items.map { item ->
                     LoggedFoodItemEntity(
                         id = java.util.UUID.randomUUID().toString(),
                         mealId = meal.id,
@@ -173,9 +172,9 @@ class DiaryBackup @Inject constructor(
                         fatGrams = item.fatGrams,
                         recognitionSource = "USER",
                     )
-                },
-            )
-        }
+                }
+            },
+        )
 
         ImportResult.Imported(parsed.meals.size)
     }

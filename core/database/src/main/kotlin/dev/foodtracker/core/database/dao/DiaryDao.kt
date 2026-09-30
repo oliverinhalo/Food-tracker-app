@@ -124,6 +124,22 @@ interface DiaryDao {
         insertItems(items)
     }
 
+    /**
+     * Restores many meals in one transaction.
+     *
+     * A year's diary is roughly a thousand meals, and a thousand separate transactions means a
+     * thousand fsyncs -- long enough for an import to look like a hang. One transaction also means
+     * a failure half way through leaves the diary as it was rather than partly overwritten.
+     */
+    @Transaction
+    suspend fun replaceMeals(meals: List<Pair<LoggedMealEntity, List<LoggedFoodItemEntity>>>) {
+        meals.forEach { (meal, items) ->
+            deleteItemsForMeal(meal.id)
+            insertMeal(meal)
+            insertItems(items)
+        }
+    }
+
     @Query("DELETE FROM logged_food_items WHERE id = :itemId")
     suspend fun deleteItem(itemId: String)
 
