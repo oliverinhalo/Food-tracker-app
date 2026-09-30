@@ -2,6 +2,7 @@ package dev.foodtracker.data.recognition
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.foodtracker.core.common.PhotoDirectories
 import dev.foodtracker.core.common.di.IoDispatcher
 import dev.foodtracker.domain.recognition.CapturedImage
 import kotlinx.coroutines.CoroutineDispatcher
@@ -90,8 +91,8 @@ class CaptureStore @Inject constructor(
     }
 
     private companion object {
-        const val CAPTURE_DIR = "captures"
-        const val DIARY_DIR = "meal-photos"
+        const val CAPTURE_DIR = PhotoDirectories.CAPTURES
+        const val DIARY_DIR = PhotoDirectories.DIARY
         const val MAX_CACHED_CAPTURES = 20
     }
 }

@@ -32,6 +32,11 @@ class SettingsRepository @Inject constructor(
         val CARBS_GOAL = intPreferencesKey("carbs_goal_grams")
         val FAT_GOAL = intPreferencesKey("fat_goal_grams")
         val UNIT_SYSTEM = stringPreferencesKey("unit_system")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
+        val HAPTICS = booleanPreferencesKey("haptics_enabled")
+        val IMAGE_QUALITY = stringPreferencesKey("image_quality")
+        val GEMINI_MODEL = stringPreferencesKey("gemini_model")
+        val REANALYSE = booleanPreferencesKey("reanalyse_queued")
         val LOCAL_ONLY = booleanPreferencesKey("local_only_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val API_KEY_PRESENT = booleanPreferencesKey("api_key_present")
@@ -45,6 +50,11 @@ class SettingsRepository @Inject constructor(
             carbsGoalGrams = prefs[Keys.CARBS_GOAL] ?: UserSettings.DEFAULT_CARBS_GOAL,
             fatGoalGrams = prefs[Keys.FAT_GOAL] ?: UserSettings.DEFAULT_FAT_GOAL,
             unitSystem = prefs[Keys.UNIT_SYSTEM]?.let(::runCatchingUnitSystem) ?: UnitSystem.METRIC,
+            themeMode = prefs[Keys.THEME_MODE].toEnum(ThemeMode.entries, ThemeMode.SYSTEM),
+            hapticsEnabled = prefs[Keys.HAPTICS] ?: true,
+            imageQuality = prefs[Keys.IMAGE_QUALITY].toEnum(ImageQuality.entries, ImageQuality.BALANCED),
+            geminiModel = prefs[Keys.GEMINI_MODEL].toEnum(GeminiModelChoice.entries, GeminiModelChoice.AUTO),
+            reanalyseQueuedPhotos = prefs[Keys.REANALYSE] ?: true,
             localOnlyMode = prefs[Keys.LOCAL_ONLY] ?: false,
             dynamicColor = prefs[Keys.DYNAMIC_COLOR] ?: true,
             hasApiKey = prefs[Keys.API_KEY_PRESENT] ?: false,
@@ -72,6 +82,23 @@ class SettingsRepository @Inject constructor(
         edit { it[Keys.API_KEY_PRESENT] = !key.isNullOrBlank() }
     }
 
+    suspend fun setThemeMode(value: ThemeMode) = edit { it[Keys.THEME_MODE] = value.name }
+
+    suspend fun setHapticsEnabled(enabled: Boolean) = edit { it[Keys.HAPTICS] = enabled }
+
+    suspend fun setImageQuality(value: ImageQuality) = edit { it[Keys.IMAGE_QUALITY] = value.name }
+
+    suspend fun setGeminiModel(value: GeminiModelChoice) = edit { it[Keys.GEMINI_MODEL] = value.name }
+
+    suspend fun setReanalyseQueuedPhotos(enabled: Boolean) = edit { it[Keys.REANALYSE] = enabled }
+
+    /** Wipes every preference. Used by "delete all data", which must leave nothing behind. */
+    suspend fun clearAll() {
+        secureKeyStore.setGeminiApiKey(null)
+        secureKeyStore.setUsdaApiKey(null)
+        context.settingsDataStore.edit { it.clear() }
+    }
+
     suspend fun setUsdaApiKey(key: String?) {
         secureKeyStore.setUsdaApiKey(key)
         edit { it[Keys.USDA_KEY_PRESENT] = !key.isNullOrBlank() }
@@ -84,3 +111,12 @@ class SettingsRepository @Inject constructor(
     private fun runCatchingUnitSystem(raw: String): UnitSystem =
         UnitSystem.entries.firstOrNull { it.name == raw } ?: UnitSystem.METRIC
 }
+
+/**
+ * Reads a stored enum name back, falling back when the value is unknown.
+ *
+ * A downgrade, or a setting removed in a later version, would otherwise leave a name in storage
+ * that no longer resolves and crash on read.
+ */
+private fun <T : Enum<T>> String?.toEnum(values: List<T>, fallback: T): T =
+    values.firstOrNull { it.name == this } ?: fallback

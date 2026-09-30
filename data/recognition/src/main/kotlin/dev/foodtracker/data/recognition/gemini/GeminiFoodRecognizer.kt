@@ -3,6 +3,7 @@ package dev.foodtracker.data.recognition.gemini
 import android.util.Base64
 import dev.foodtracker.core.common.di.IoDispatcher
 import dev.foodtracker.core.datastore.SecureKeyStore
+import dev.foodtracker.core.datastore.SettingsRepository
 import dev.foodtracker.core.model.DegradeReason
 import dev.foodtracker.core.model.DetectedItem
 import dev.foodtracker.core.model.FoodAlternative
@@ -16,6 +17,7 @@ import dev.foodtracker.domain.recognition.CapturedImage
 import dev.foodtracker.domain.recognition.CloudFoodRecognizer
 import dev.foodtracker.domain.recognition.RecognitionOutcome
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
@@ -34,6 +36,7 @@ class GeminiFoodRecognizer @Inject constructor(
     private val client: OkHttpClient,
     private val json: Json,
     private val secureKeyStore: SecureKeyStore,
+    private val settingsRepository: SettingsRepository,
     private val networkMonitor: NetworkMonitor,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : CloudFoodRecognizer {
@@ -49,7 +52,8 @@ class GeminiFoodRecognizer @Inject constructor(
         val payload = buildRequestBody(image)
         var lastFailure: RecognitionOutcome.Unavailable? = null
 
-        for (model in GeminiModels.chainFrom(preferred = null)) {
+        val preferred = settingsRepository.settings.first().geminiModel.modelId
+        for (model in GeminiModels.chainFrom(preferred)) {
             when (val outcome = callModel(model, payload, apiKey)) {
                 is RecognitionOutcome.Success -> return@withContext outcome
                 is RecognitionOutcome.Unavailable -> {

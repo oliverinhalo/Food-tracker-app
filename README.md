@@ -209,6 +209,41 @@ toward your history — cautiously at first, more confidently as samples accumul
 completely, since the camera is looking at *this* plate. Corrections are weighted by recency, and a
 trivial nudge (150 g to 152 g) is ignored rather than diluting the signal.
 
+## Your data, and getting it out
+
+Everything lives in the app's private storage: your meals, your photos, the food cache and what the
+app has learned about your portions. Nothing is uploaded, and there is no account.
+
+Settings → **Your data** covers the three things that follow from that:
+
+- **Export** writes your diary to a JSON file through the system picker. It holds meals, items,
+  portions and their numbers; photos are left out because they dominate the size, and API keys are
+  left out because a credential does not belong in a file you email yourself.
+- **Import** restores one, additively. Meal ids are preserved, so importing the same file twice
+  restores rather than doubles.
+- **Delete all my data** erases every meal, photo, cached food, learned portion, preference and
+  stored key, behind a confirmation. This is the deletion path Play's user-data policy requires.
+
+[`PRIVACY.md`](PRIVACY.md) is the policy the app links to from Settings → About.
+[`docs/play-store.md`](docs/play-store.md) has the release build, the upload-key setup and the
+data-safety answers.
+
+## Options
+
+Settings covers the things worth differing on rather than the things worth guessing at:
+
+| | |
+| --- | --- |
+| **Appearance** | Theme (system / light / dark), dynamic colour, haptics, metric or imperial |
+| **Goals** | Daily calories and protein/carbs/fat targets, with a warning when the two disagree |
+| **Scanning** | Photo quality (data saver / balanced / high detail), which Gemini model, retry-when-online, local-only mode |
+| **Keys** | Gemini and USDA keys, each revealable and copyable before a reinstall |
+| **Your data** | Export, import, erase |
+
+Photo quality is the one with a real trade-off: higher detail uploads more and takes longer on a
+slow connection without much changing what the recogniser sees, which is why *Balanced* is the
+default rather than the maximum.
+
 ## Testing
 
 ```bash
@@ -263,3 +298,4 @@ from the outside.
 | 3 | Offline re-analysis queue; local pass built then deliberately dropped on size | ✅ |
 | 4 | Barcode scanning, food search, recents, manual entry, History | ✅ |
 | 5 | Baseline profile, Compose stability, a11y pass | ✅ |
+| 6 | Settings for everything, export/import/erase, Play Store readiness | ✅ |

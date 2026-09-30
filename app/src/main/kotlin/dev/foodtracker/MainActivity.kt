@@ -30,6 +30,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.foundation.isSystemInDarkTheme
+import dev.foodtracker.core.datastore.ThemeMode
 import dev.foodtracker.core.ui.theme.FoodTrackerTheme
 import dev.foodtracker.feature.results.ResultsBottomSheet
 import dev.foodtracker.feature.results.ResultsViewModel
@@ -51,7 +53,15 @@ class MainActivity : ComponentActivity() {
             val settingsViewModel: SettingsViewModel = hiltViewModel()
             val settings by settingsViewModel.uiState.collectAsStateWithLifecycle()
 
-            FoodTrackerTheme(dynamicColor = settings.dynamicColor) {
+            FoodTrackerTheme(
+                darkTheme = when (settings.themeMode) {
+                    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                    ThemeMode.LIGHT -> false
+                    ThemeMode.DARK -> true
+                },
+                dynamicColor = settings.dynamicColor,
+                hapticsEnabled = settings.hapticsEnabled,
+            ) {
                 FoodTrackerApp()
             }
         }

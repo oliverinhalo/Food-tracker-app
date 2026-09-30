@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Every host this app talks to is HTTPS, so cleartext is refused outright rather than left to a
+  platform default that varies by API level. A plain-HTTP request is then a build-time-visible
+  failure instead of a photo leaving the phone unencrypted.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -8,5 +8,7 @@ android {
 
 dependencies {
     implementation(project(":core:datastore"))
+    implementation(project(":data:diary"))
+    implementation(libs.androidx.activity.compose)
     implementation(libs.compose.material.icons.extended)
 }

@@ -1,6 +1,7 @@
 plugins {
     id("foodtracker.android.library")
     id("foodtracker.android.hilt")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -15,4 +16,5 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
 }

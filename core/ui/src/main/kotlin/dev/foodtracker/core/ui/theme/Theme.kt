@@ -13,6 +13,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import dev.foodtracker.core.ui.component.LocalHapticsEnabled
 
 private val LightScheme = lightColorScheme(
     primary = BrandGreen,
@@ -48,6 +49,7 @@ object FoodTrackerTheme {
 fun FoodTrackerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
+    hapticsEnabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -64,7 +66,10 @@ fun FoodTrackerTheme(
         MacroPalette(MacroColors.Protein, MacroColors.Carbs, MacroColors.Fat)
     }
 
-    CompositionLocalProvider(LocalMacroPalette provides macros) {
+    CompositionLocalProvider(
+        LocalMacroPalette provides macros,
+        LocalHapticsEnabled provides hapticsEnabled,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = FoodTrackerTypography,

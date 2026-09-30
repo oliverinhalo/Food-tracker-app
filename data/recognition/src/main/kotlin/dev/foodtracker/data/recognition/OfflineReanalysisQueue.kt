@@ -101,7 +101,7 @@ class OfflineReanalysisQueue @Inject constructor(
 
     companion object {
         const val WORK_NAME = "reanalysis"
-        private const val QUEUE_DIR = "pending-captures"
+        private const val QUEUE_DIR = dev.foodtracker.core.common.PhotoDirectories.REANALYSIS_QUEUE
 
         /** Give up after this many failures; something about the photo or key is wrong. */
         const val MAX_ATTEMPTS = 5

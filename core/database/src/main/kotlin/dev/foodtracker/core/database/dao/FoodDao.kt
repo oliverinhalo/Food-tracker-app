@@ -47,6 +47,15 @@ interface FoodDao {
     @Query("DELETE FROM cached_foods WHERE cachedAtMillis < :olderThanMillis AND barcode IS NULL")
     suspend fun evictOlderThan(olderThanMillis: Long): Int
 
+    @Query("DELETE FROM cached_foods")
+    suspend fun deleteAllCachedFoods()
+
+    @Query("DELETE FROM portion_corrections")
+    suspend fun deleteAllCorrections()
+
+    @Query("DELETE FROM pending_analyses")
+    suspend fun deleteAllPendingAnalyses()
+
     @Insert
     suspend fun insertCorrection(correction: PortionCorrectionEntity)
 

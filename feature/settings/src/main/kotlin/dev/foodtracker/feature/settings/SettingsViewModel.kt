@@ -3,21 +3,45 @@ package dev.foodtracker.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.foodtracker.core.datastore.GeminiModelChoice
+import dev.foodtracker.core.datastore.ImageQuality
 import dev.foodtracker.core.datastore.SecureKeyStore
 import dev.foodtracker.core.datastore.SettingsRepository
+import dev.foodtracker.core.datastore.ThemeMode
 import dev.foodtracker.core.datastore.UnitSystem
 import dev.foodtracker.core.datastore.UserSettings
+import dev.foodtracker.data.diary.DiaryBackup
+import dev.foodtracker.data.diary.ImportResult
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+/**
+ * What the data section is currently doing, and what it last did.
+ *
+ * Export and erase are both slow enough to need a progress state and consequential enough that a
+ * silent finish would leave the user unsure whether anything happened.
+ */
+sealed interface DataTaskState {
+    data object Idle : DataTaskState
+    data object Working : DataTaskState
+    data class Done(val message: String) : DataTaskState
+    data class Failed(val message: String) : DataTaskState
+}
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val secureKeyStore: SecureKeyStore,
+    private val diaryBackup: DiaryBackup,
 ) : ViewModel() {
+
+    private val _dataTask = MutableStateFlow<DataTaskState>(DataTaskState.Idle)
+    val dataTask: StateFlow<DataTaskState> = _dataTask.asStateFlow()
 
     /**
      * The saved key, so it can be copied out before a reinstall.
@@ -67,5 +91,66 @@ class SettingsViewModel @Inject constructor(
 
     fun setDynamicColor(enabled: Boolean) = viewModelScope.launch {
         settingsRepository.setDynamicColor(enabled)
+    }
+
+    fun setThemeMode(mode: ThemeMode) = viewModelScope.launch {
+        settingsRepository.setThemeMode(mode)
+    }
+
+    fun setHaptics(enabled: Boolean) = viewModelScope.launch {
+        settingsRepository.setHapticsEnabled(enabled)
+    }
+
+    fun setImageQuality(quality: ImageQuality) = viewModelScope.launch {
+        settingsRepository.setImageQuality(quality)
+    }
+
+    fun setGeminiModel(choice: GeminiModelChoice) = viewModelScope.launch {
+        settingsRepository.setGeminiModel(choice)
+    }
+
+    fun setReanalyseQueuedPhotos(enabled: Boolean) = viewModelScope.launch {
+        settingsRepository.setReanalyseQueuedPhotos(enabled)
+    }
+
+    /**
+     * Writes the diary to a file the user chose.
+     *
+     * The caller supplies the writer because only the Activity can hold the document picker; this
+     * keeps the file system out of the ViewModel while still owning the progress state.
+     */
+    fun export(write: (String) -> Unit) = viewModelScope.launch {
+        _dataTask.value = DataTaskState.Working
+        _dataTask.value = runCatching {
+            val payload = diaryBackup.export()
+            write(payload)
+            DataTaskState.Done("Diary exported.")
+        }.getOrElse { DataTaskState.Failed("Couldn't write that file.") }
+    }
+
+    fun import(read: () -> String?) = viewModelScope.launch {
+        _dataTask.value = DataTaskState.Working
+        _dataTask.value = runCatching {
+            val contents = read() ?: return@runCatching DataTaskState.Failed("Couldn't read that file.")
+            when (val result = diaryBackup.import(contents)) {
+                is ImportResult.Imported ->
+                    DataTaskState.Done("Restored ${result.meals} meal${if (result.meals == 1) "" else "s"}.")
+                is ImportResult.Failed -> DataTaskState.Failed(result.reason)
+            }
+        }.getOrElse { DataTaskState.Failed("Couldn't read that file.") }
+    }
+
+    /** Erases the diary, the caches, what was learned, the photos, and both API keys. */
+    fun deleteEverything() = viewModelScope.launch {
+        _dataTask.value = DataTaskState.Working
+        _dataTask.value = runCatching {
+            diaryBackup.deleteEverything()
+            settingsRepository.clearAll()
+            DataTaskState.Done("Everything deleted.")
+        }.getOrElse { DataTaskState.Failed("Couldn't delete everything. Try again.") }
+    }
+
+    fun dismissDataTask() {
+        _dataTask.value = DataTaskState.Idle
     }
 }

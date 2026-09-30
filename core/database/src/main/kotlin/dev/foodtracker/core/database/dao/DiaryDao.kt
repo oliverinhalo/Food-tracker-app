@@ -96,6 +96,16 @@ interface DiaryDao {
     )
     fun totalsBetween(fromEpochDay: Long, toEpochDay: Long): Flow<List<DayTotals>>
 
+    @Transaction
+    @Query("SELECT * FROM logged_meals WHERE epochDay BETWEEN :fromEpochDay AND :toEpochDay ORDER BY epochDay ASC, loggedAtMillis ASC")
+    suspend fun mealsBetween(fromEpochDay: Long, toEpochDay: Long): List<MealWithItems>
+
+    @Query("DELETE FROM logged_meals")
+    suspend fun deleteAllMeals()
+
+    @Query("DELETE FROM favourite_foods")
+    suspend fun deleteAllFavourites()
+
     @Query("DELETE FROM logged_meals WHERE id = :mealId")
     suspend fun deleteMeal(mealId: String)
 

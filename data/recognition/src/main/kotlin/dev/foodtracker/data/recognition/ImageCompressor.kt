@@ -5,8 +5,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import androidx.exifinterface.media.ExifInterface
 import dev.foodtracker.core.common.di.DefaultDispatcher
+import dev.foodtracker.core.datastore.SettingsRepository
 import dev.foodtracker.domain.recognition.CapturedImage
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -24,25 +26,35 @@ import kotlin.math.roundToInt
  */
 @Singleton
 class ImageCompressor @Inject constructor(
+    private val settingsRepository: SettingsRepository,
     @DefaultDispatcher private val dispatcher: CoroutineDispatcher,
 ) {
 
-    suspend fun compress(jpegBytes: ByteArray): CapturedImage = withContext(dispatcher) {
+    suspend fun compress(jpegBytes: ByteArray): CapturedImage {
+        val quality = settingsRepository.settings.first().imageQuality
+        return compress(jpegBytes, quality.maxDimension, quality.jpegQuality)
+    }
+
+    suspend fun compress(
+        jpegBytes: ByteArray,
+        maxDimension: Int,
+        jpegQuality: Int,
+    ): CapturedImage = withContext(dispatcher) {
         // Decode bounds first so we never allocate the full-size bitmap.
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size, bounds)
 
         val options = BitmapFactory.Options().apply {
-            inSampleSize = sampleSizeFor(bounds.outWidth, bounds.outHeight)
+            inSampleSize = sampleSizeFor(bounds.outWidth, bounds.outHeight, maxDimension)
         }
         val decoded = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size, options)
             ?: return@withContext CapturedImage(jpegBytes, bounds.outWidth, bounds.outHeight)
 
         val oriented = decoded.applyExifRotation(jpegBytes)
-        val scaled = oriented.scaledToFit(MAX_DIMENSION)
+        val scaled = oriented.scaledToFit(maxDimension)
 
         val output = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
+        scaled.compress(Bitmap.CompressFormat.JPEG, jpegQuality, output)
 
         if (scaled !== decoded) scaled.recycle()
         if (oriented !== decoded && oriented !== scaled) oriented.recycle()
@@ -56,10 +68,10 @@ class ImageCompressor @Inject constructor(
     }
 
     /** Power-of-two subsampling done by the decoder itself, which is far cheaper than scaling after. */
-    private fun sampleSizeFor(width: Int, height: Int): Int {
+    private fun sampleSizeFor(width: Int, height: Int, maxDimension: Int): Int {
         var sampleSize = 1
         val longest = max(width, height)
-        while (longest / (sampleSize * 2) >= MAX_DIMENSION) {
+        while (longest / (sampleSize * 2) >= maxDimension) {
             sampleSize *= 2
         }
         return sampleSize

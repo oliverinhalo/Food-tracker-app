@@ -118,6 +118,28 @@ jobs:
           cp "$SRC" "$DEST"
           echo "path=${DEST}" >> "$GITHUB_OUTPUT"
 
+      # Play distributes app bundles, not APKs: it splits one upload into per-device downloads.
+      # Only versioned releases get one -- the rolling dev build is for sideloading, where an
+      # .aab is useless.
+      - name: Assemble release bundle
+        id: bundle
+        if: steps.version.outputs.tag != 'latest'
+        env:
+          USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
+          RELEASE_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ./gradlew bundleRelease --stacktrace \
+            -PversionName="${{ steps.version.outputs.name }}" \
+            -PversionCode="${{ steps.version.outputs.code }}"
+          SRC="$(find app/build/outputs/bundle/release -name '*.aab' | head -1)"
+          DEST="food-tracker-${{ steps.version.outputs.name }}.aab"
+          cp "$SRC" "$DEST"
+          echo "path=${DEST}" >> "$GITHUB_OUTPUT"
+
       - name: Write release notes
         run: |
           set -euo pipefail
@@ -132,6 +154,10 @@ jobs:
               echo "> **Note:** this build is signed with a throwaway debug key because no release"
               echo "> keystore secret is configured. It installs fine, but Android will refuse to"
               echo "> upgrade over a build signed with a different key -- uninstall first if that happens."
+              echo
+            fi
+            if [ -n "${{ steps.bundle.outputs.path }}" ]; then
+              echo "The \`.aab\` alongside it is the Play Store upload; it cannot be installed directly."
               echo
             fi
             echo "Built from \`${{ github.sha }}\`."
@@ -162,6 +188,8 @@ jobs:
           name: ${{ steps.version.outputs.tag == 'latest' && 'Latest development build' || format('Food Tracker {0}', steps.version.outputs.name) }}
           body_path: release-notes.md
           prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
-          files: ${{ steps.apk.outputs.path }}
+          files: |
+            ${{ steps.apk.outputs.path }}
+            ${{ steps.bundle.outputs.path }}
           # The rolling "latest" release is republished on every push to the default branch.
           make_latest: ${{ steps.version.outputs.prerelease != 'true' }}
