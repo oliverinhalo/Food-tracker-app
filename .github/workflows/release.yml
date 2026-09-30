@@ -146,6 +146,19 @@ jobs:
           {
             echo "### Food Tracker ${{ steps.version.outputs.name }}"
             echo
+            # A tagged version describes itself, if CHANGELOG.md has a section for it. Without
+            # this the notes for 1.0.0 and for a nightly read identically, which tells nobody
+            # whether it is worth installing.
+            if [ -f CHANGELOG.md ]; then
+              NOTES="$(awk -v v="## ${{ steps.version.outputs.name }}" \
+                'index($0, v) == 1 {found=1; next} found && /^## / {exit} found' CHANGELOG.md)"
+              if [ -n "${NOTES}" ]; then
+                echo "${NOTES}"
+                echo
+                echo "---"
+                echo
+              fi
+            fi
             echo "Download **${{ steps.apk.outputs.path }}** below and open it on your phone to install."
             echo "This build is \`${{ steps.version.outputs.name }}\`."
             echo "You will need to allow installing from unknown sources the first time."
