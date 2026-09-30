@@ -12,10 +12,12 @@ import dev.foodtracker.core.common.TimeProvider
 import dev.foodtracker.core.common.di.IoDispatcher
 import dev.foodtracker.core.database.dao.FoodDao
 import dev.foodtracker.core.database.entity.PendingAnalysisEntity
+import dev.foodtracker.core.datastore.SettingsRepository
 import dev.foodtracker.domain.recognition.CapturedImage
 import dev.foodtracker.domain.recognition.ReanalysisQueue
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -33,6 +35,7 @@ import javax.inject.Singleton
 class OfflineReanalysisQueue @Inject constructor(
     @ApplicationContext private val context: Context,
     private val foodDao: FoodDao,
+    private val settingsRepository: SettingsRepository,
     private val timeProvider: TimeProvider,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ReanalysisQueue {
@@ -40,6 +43,10 @@ class OfflineReanalysisQueue @Inject constructor(
     val pendingCount: Flow<Int> = foodDao.pendingAnalysisCount()
 
     override suspend fun enqueue(captureId: String, image: CapturedImage) {
+        // Someone who turned retrying off did so to stop the app uploading photos later, on its
+        // own, over a connection they did not choose. Keeping the photo would defeat that.
+        if (!settingsRepository.settings.first().reanalyseQueuedPhotos) return
+
         withContext(ioDispatcher) {
             val directory = File(context.filesDir, QUEUE_DIR).apply { mkdirs() }
             val file = File(directory, "$captureId.jpg")

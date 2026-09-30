@@ -19,6 +19,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,8 +60,11 @@ class MainActivity : ComponentActivity() {
             val themeViewModel: AppThemeViewModel = hiltViewModel()
             val theme by themeViewModel.theme.collectAsStateWithLifecycle()
 
-            themeReady = theme != null
             val resolved = theme ?: AppTheme()
+
+            // In a SideEffect rather than inline: composition can run more than once per frame,
+            // and releasing the splash is a change to the world outside it.
+            SideEffect { themeReady = theme != null }
 
             FoodTrackerTheme(
                 darkTheme = when (resolved.themeMode) {

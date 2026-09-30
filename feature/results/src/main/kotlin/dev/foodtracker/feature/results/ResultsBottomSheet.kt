@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import dev.foodtracker.core.model.DegradeReason
 import dev.foodtracker.core.model.DetectedItem
 import dev.foodtracker.core.camera.BarcodeScannerDialog
 import dev.foodtracker.core.model.MealType
@@ -102,10 +103,19 @@ fun ResultsBottomSheet(
 
             when {
                 state.phase == AnalysisPhase.FAILED && state.items.isEmpty() -> {
+                    // The reason's own copy, not the raw error: it already says what happens next,
+                    // and showing both here and in the banner said the same thing twice.
                     MessageState(
                         icon = Icons.Default.ErrorOutline,
-                        title = "Couldn't read that meal",
-                        body = state.errorMessage,
+                        title = when (state.degradeReason) {
+                            DegradeReason.OFFLINE -> "No connection"
+                            DegradeReason.NO_API_KEY -> "No Gemini key"
+                            DegradeReason.LOCAL_ONLY_MODE -> "Local-only mode"
+                            DegradeReason.RATE_LIMITED, DegradeReason.MODEL_UNAVAILABLE ->
+                                "The recogniser is busy"
+                            else -> "Couldn't read that meal"
+                        },
+                        body = state.degradeReason?.bannerMessage() ?: state.errorMessage,
                         actionLabel = "Try again",
                         onAction = { onAction(ResultsAction.Retry) },
                         modifier = Modifier.padding(vertical = 24.dp),
@@ -256,8 +266,12 @@ private fun TotalsHeader(state: ResultsUiState) {
             MacroLegend(state = state)
         }
 
-        state.degradeReason?.let { reason ->
-            DegradeBanner(message = reason.bannerMessage(), isActionable = reason.isUserActionable)
+        // Suppressed when the empty-failure state above is already saying it.
+        state.degradeReason?.takeIf { state.items.isNotEmpty() }?.let { reason ->
+            DegradeBanner(
+                message = reason.bannerMessage(hasResults = state.items.isNotEmpty()),
+                isActionable = reason.isUserActionable,
+            )
         }
 
         // Only rendered inside the empty-failure branch before, so a save that failed set this and
