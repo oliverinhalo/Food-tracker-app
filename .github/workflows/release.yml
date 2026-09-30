@@ -164,9 +164,15 @@ jobs:
             echo "You will need to allow installing from unknown sources the first time."
             echo
             if [ "${{ steps.keystore.outputs.signed }}" != "true" ]; then
-              echo "> **Note:** this build is signed with a throwaway debug key because no release"
-              echo "> keystore secret is configured. It installs fine, but Android will refuse to"
-              echo "> upgrade over a build signed with a different key -- uninstall first if that happens."
+              # Not a debug key: Gradle falls back to keystore/dev.jks, which is committed and
+              # therefore the same on every build. That is what lets one of these install over
+              # the last one instead of demanding an uninstall. Saying "throwaway debug key"
+              # here told people the opposite of the truth.
+              echo "> **Note:** no release keystore secret is configured, so this build is signed with"
+              echo "> the repository's shared development key. It is the same key on every build, so"
+              echo "> this installs over an earlier one and keeps your diary and your API keys."
+              echo "> That key is public and is not suitable for the Play Store, which needs an upload"
+              echo "> key -- see \`docs/play-store.md\`."
               echo
             fi
             if [ -n "${{ steps.bundle.outputs.path }}" ]; then
